@@ -25,6 +25,18 @@ export interface Story {
   status: StoryStatus;
   aiClassification: string | null;
   safetyFlags: string[];
+  // Entity extraction (for matching)
+  entities?: {
+    people: string[];
+    organizations: string[];
+    locations: string[];
+    events: string[];
+    topics: string[];
+  };
+  // Match metadata
+  matchedToMarketId?: string | null;
+  matchConfidence?: number | null;
+  matchDecision?: string | null;
   // Virality tracking
   currentViralityScore: number | null;
   peakViralityScore: number | null;
@@ -116,12 +128,94 @@ export interface Transaction {
 
 export type TransactionType = "deposit" | "withdrawal" | "stake" | "payout" | "fee";
 
+// Entity extraction types (for AI matching)
+export interface ExtractedEntities {
+  people: string[];
+  organizations: string[];
+  locations: string[];
+  events: string[];
+  dates: string[];
+  topics: string[];
+}
+
+// Match result types
+export type MatchDecision = "exact_match" | "likely_match" | "related" | "no_match";
+export type SuggestedAction = "join_existing" | "create_new" | "user_confirm";
+
+export interface MatchScores {
+  semantic: number;
+  entity: number;
+  temporal: number;
+  composite: number;
+}
+
+export interface MatchCandidate {
+  marketId: string;
+  storyId: string;
+  title: string;
+  description: string;
+  totalPool: number;
+  participantCount: number;
+  scores?: MatchScores;
+}
+
+export interface MatchCheckResult {
+  type: "duplicate" | "match_result";
+  decision?: MatchDecision;
+  confidence?: number;
+  reasoning?: string;
+  suggestedAction?: SuggestedAction;
+  bestMatch?: MatchCandidate;
+  otherCandidates?: Array<Omit<MatchCandidate, "description" | "scores"> & { composite: number }>;
+  entities?: ExtractedEntities;
+  existingStory?: {
+    id: string;
+    title: string;
+    similarity: number;
+  };
+  message?: string;
+}
+
+export interface MatchConfirmationResponse {
+  message: string;
+  matchResult: {
+    decision: MatchDecision;
+    confidence: number;
+    reasoning: string;
+    bestMatch: MatchCandidate;
+  };
+  actions: {
+    joinMarket: {
+      method: string;
+      path: string;
+      body: CreateStoryInput & { joinMarketId: string };
+    };
+    createNew: {
+      method: string;
+      path: string;
+      body: CreateStoryInput & { forceNewMarket: boolean };
+    };
+  };
+}
+
+export interface JoinMarketResult {
+  action: "joined_existing_market";
+  submission: Story;
+  market: Market;
+  matchInfo: {
+    confidence: number | null;
+    decision: string | null;
+  };
+}
+
 // API Request/Response types
 export interface CreateStoryInput {
   title: string;
   url: string;
   description: string;
   initialStake: number;
+  forceNewMarket?: boolean;
+  joinMarketId?: string;
 }
 
 export interface StakeInput {
