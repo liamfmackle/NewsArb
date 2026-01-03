@@ -1,0 +1,8 @@
+[phases.install]
+cmds = ["corepack enable", "pnpm install --no-frozen-lockfile"]
+
+[phases.build]
+cmds = ["pnpm build:$APP_TARGET"]
+
+[start]
+cmd = "pnpm start:$APP_TARGET"
