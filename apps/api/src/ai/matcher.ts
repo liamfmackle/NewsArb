@@ -70,7 +70,7 @@ export interface MatchResult {
 export interface SubmissionContext {
   title: string;
   description: string;
-  url: string;
+  url?: string;
   sourceDomain: string;
   category?: string;
   embedding?: number[];
@@ -120,7 +120,7 @@ const MATCH_CONFIG = {
 export async function extractEntities(
   title: string,
   description: string,
-  url: string
+  url?: string
 ): Promise<ExtractedEntities> {
   const defaultEntities: ExtractedEntities = {
     people: [],
@@ -163,9 +163,9 @@ IMPORTANT:
           role: "user",
           content: `Title: ${title}
 
-Description: ${description}
+Description: ${description}${url ? `
 
-Source: ${url}`,
+Source: ${url}` : ""}`,
         },
       ],
       response_format: { type: "json_object" },

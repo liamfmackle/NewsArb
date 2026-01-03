@@ -43,7 +43,7 @@ enum KycStatus {
 model Story {
   id               String      @id @default(cuid())
   title            String
-  url              String
+  url              String?
   description      String
   sourceDomain     String
   submitterId      String
