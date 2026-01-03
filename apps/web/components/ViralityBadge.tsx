@@ -70,10 +70,7 @@ export function ViralityBadgeCompact({
 }) {
   if (score === null) {
     return (
-      <span className="text-xs text-muted font-mono">
-        <span className="slash-divider" />
-        --
-      </span>
+      <span className="text-xs text-muted font-mono">--</span>
     );
   }
 
@@ -94,7 +91,6 @@ export function ViralityBadgeCompact({
 
   return (
     <span className="text-xs font-mono inline-flex items-center gap-0.5">
-      <span className="slash-divider" />
       <span className="text-gold">{score.toFixed(0)}</span>
       {trend && <span className={trendColor}>{trendArrow}</span>}
     </span>
