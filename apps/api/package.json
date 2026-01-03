@@ -15,15 +15,17 @@
     "db:seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
+    "@fastify/cors": "^10.0.1",
+    "@fastify/jwt": "^9.0.1",
+    "@fastify/rate-limit": "^10.2.1",
     "@newsarb/shared": "workspace:*",
     "@prisma/client": "^6.1.0",
     "bcryptjs": "^2.4.3",
     "fastify": "^5.2.0",
-    "@fastify/cors": "^10.0.1",
-    "@fastify/jwt": "^9.0.1",
-    "@fastify/rate-limit": "^10.2.1",
+    "fastify-raw-body": "^5.0.0",
     "ioredis": "^5.4.2",
     "openai": "^4.77.0",
+    "stripe": "^20.1.0",
     "zod": "^3.24.1"
   },
   "devDependencies": {

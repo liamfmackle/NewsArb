@@ -83,6 +83,24 @@ export const usersApi = {
     api<Transaction[]>("/users/me/transactions", { token }),
 };
 
+// Payments
+export const paymentsApi = {
+  currencies: () => api<{ currencies: Currency[] }>("/payments/currencies"),
+
+  createCheckout: (amount: number, currency: string, token: string) =>
+    api<CheckoutSession>("/payments/checkout", {
+      method: "POST",
+      body: { amount, currency },
+      token,
+    }),
+
+  getCheckoutStatus: (sessionId: string, token: string) =>
+    api<CheckoutStatus>(`/payments/checkout/${sessionId}`, { token }),
+
+  deposits: (token: string) =>
+    api<{ deposits: Transaction[] }>("/payments/deposits", { token }),
+};
+
 // Types (will be moved to shared package)
 export type ViralityTrend = "rising" | "stable" | "declining";
 
@@ -180,4 +198,22 @@ export interface CreateStoryInput {
   url: string;
   description: string;
   initialStake: number;
+}
+
+export interface Currency {
+  code: string;
+  symbol: string;
+  name: string;
+  minAmount: number;
+}
+
+export interface CheckoutSession {
+  sessionId: string;
+  url: string;
+}
+
+export interface CheckoutStatus {
+  status: string;
+  amountTotal: number;
+  currency: string;
 }

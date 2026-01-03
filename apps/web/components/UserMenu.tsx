@@ -4,6 +4,7 @@ import Link from "next/link";
 import { signOut } from "next-auth/react";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
+import { DepositModal } from "@/components/DepositModal";
 import { formatCurrency } from "@/lib/utils";
 import {
   User,
@@ -11,12 +12,14 @@ import {
   LogOut,
   Wallet,
   ChevronDown,
+  PlusCircle,
 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 
 export function UserMenu() {
   const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
+  const [isDepositOpen, setIsDepositOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -50,9 +53,21 @@ export function UserMenu() {
           <div className="p-2 border-b">
             <p className="text-sm font-medium">{user.displayName || "User"}</p>
             <p className="text-xs text-muted-foreground truncate">{user.email}</p>
-            <div className="flex items-center gap-1 mt-1 text-xs">
-              <Wallet className="h-3 w-3" />
-              <span className="font-medium">{formatCurrency(user.balance)}</span>
+            <div className="flex items-center justify-between mt-2">
+              <div className="flex items-center gap-1 text-xs">
+                <Wallet className="h-3 w-3" />
+                <span className="font-medium">{formatCurrency(user.balance)}</span>
+              </div>
+              <button
+                onClick={() => {
+                  setIsOpen(false);
+                  setIsDepositOpen(true);
+                }}
+                className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 font-medium"
+              >
+                <PlusCircle className="h-3 w-3" />
+                Add Funds
+              </button>
             </div>
           </div>
 
@@ -86,6 +101,11 @@ export function UserMenu() {
           </div>
         </div>
       )}
+
+      <DepositModal
+        isOpen={isDepositOpen}
+        onClose={() => setIsDepositOpen(false)}
+      />
     </div>
   );
 }

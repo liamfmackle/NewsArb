@@ -89,6 +89,17 @@ Key auth files:
 - `apps/web/middleware.ts` - Protected route middleware
 - `apps/web/lib/wagmi.ts` - Wagmi/RainbowKit configuration
 
+### Payments (Stripe)
+- Stripe Checkout for wallet deposits in multiple currencies
+- Webhook handler for payment confirmation
+- Automatic currency conversion to USD for balance
+
+Key payment files:
+- `apps/api/src/routes/payments.ts` - Payment routes (checkout, webhook, deposits)
+- `apps/web/components/DepositModal.tsx` - Deposit modal with currency selection
+- `apps/web/app/deposit/success/page.tsx` - Post-payment success page
+- `apps/web/app/deposit/cancel/page.tsx` - Payment cancelled page
+
 ## Environment Variables
 
 Copy `.env.example` to `.env` and configure:
@@ -97,3 +108,6 @@ Copy `.env.example` to `.env` and configure:
 - `NEXTAUTH_SECRET` - Session encryption
 - `GOOGLE_CLIENT_ID/SECRET` - OAuth (optional)
 - `OPENAI_API_KEY` - AI classification (optional, defaults to auto-approve)
+- `STRIPE_SECRET_KEY` - Stripe secret key for payments
+- `STRIPE_WEBHOOK_SECRET` - Stripe webhook signing secret
+- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` - Stripe publishable key for frontend
