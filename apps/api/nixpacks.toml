@@ -1,0 +1,8 @@
+[phases.install]
+cmds = ["pnpm install --no-frozen-lockfile"]
+
+[phases.build]
+cmds = ["pnpm db:generate", "pnpm build"]
+
+[start]
+cmd = "node dist/index.js"
