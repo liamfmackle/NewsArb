@@ -1,0 +1,192 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  passwordHash  String?
+  displayName   String?
+  walletAddress String?   @unique
+  googleId      String?   @unique
+  balance       Float     @default(0)
+  kycStatus     KycStatus @default(none)
+  role          UserRole  @default(user)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  stories      Story[]
+  positions    Position[]
+  transactions Transaction[]
+
+  @@index([email])
+  @@index([walletAddress])
+}
+
+enum UserRole {
+  user
+  admin
+}
+
+enum KycStatus {
+  none
+  pending
+  verified
+  rejected
+}
+
+model Story {
+  id               String      @id @default(cuid())
+  title            String
+  url              String
+  description      String
+  sourceDomain     String
+  submitterId      String
+  canonicalEventId String?
+  status           StoryStatus @default(pending)
+  aiClassification String?
+  safetyFlags      String?     // JSON string for SQLite compatibility
+  embedding        String?     // JSON string of float array for SQLite compatibility
+
+  // Virality tracking
+  currentViralityScore Float?
+  peakViralityScore    Float?
+  viralityTrend        ViralityTrend?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  submitter         User               @relation(fields: [submitterId], references: [id])
+  market            Market?
+  canonicalEvent    CanonicalEvent?    @relation(fields: [canonicalEventId], references: [id])
+  viralitySnapshots ViralitySnapshot[]
+
+  @@index([status])
+  @@index([createdAt])
+  @@index([submitterId])
+  @@index([canonicalEventId])
+}
+
+enum ViralityTrend {
+  rising
+  stable
+  declining
+}
+
+model CanonicalEvent {
+  id          String   @id @default(cuid())
+  title       String   // Representative title for the event
+  description String?  // Summary of the event
+  embedding   String?  // Primary embedding for similarity matching
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  stories Story[] // All stories linked to this event
+
+  @@index([createdAt])
+}
+
+enum StoryStatus {
+  pending
+  active
+  capped
+  rejected
+}
+
+model Market {
+  id               String       @id @default(cuid())
+  storyId          String       @unique
+  totalPool        Float        @default(0)
+  participantCount Int          @default(0)
+  status           MarketStatus @default(open)
+  capThreshold     Float?
+  createdAt        DateTime     @default(now())
+  cappedAt         DateTime?
+  settledAt        DateTime?
+  settlementReason String?      // "virality_decay" | "admin_manual" | "cap_reached"
+
+  story     Story      @relation(fields: [storyId], references: [id])
+  positions Position[]
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+enum MarketStatus {
+  open
+  capped
+  settled
+}
+
+model ViralitySnapshot {
+  id      String @id @default(cuid())
+  storyId String
+  story   Story  @relation(fields: [storyId], references: [id])
+
+  // Raw metrics
+  articleCount   Int   // Cross-platform article mentions
+  socialMentions Int   // Twitter/Reddit/etc mentions
+  searchInterest Int   // Google Trends 0-100
+  engagementRate Float // Composite engagement
+
+  // Computed
+  viralityScore  Float         // Weighted composite 0-100
+  velocityChange Float         // Score change rate (positive = rising)
+  trend          ViralityTrend // rising | stable | declining
+
+  timestamp DateTime @default(now())
+
+  @@index([storyId, timestamp])
+  @@index([timestamp])
+}
+
+model Position {
+  id            String         @id @default(cuid())
+  userId        String
+  marketId      String
+  stakeAmount   Float
+  entryPoolSize Float
+  entryTime     DateTime       @default(now())
+  payoutAmount  Float?
+  status        PositionStatus @default(active)
+
+  user   User   @relation(fields: [userId], references: [id])
+  market Market @relation(fields: [marketId], references: [id])
+
+  @@index([userId])
+  @@index([marketId])
+  @@index([status])
+}
+
+enum PositionStatus {
+  active
+  paid_out
+}
+
+model Transaction {
+  id          String          @id @default(cuid())
+  userId      String
+  type        TransactionType
+  amount      Float
+  referenceId String?
+  createdAt   DateTime        @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([type])
+  @@index([createdAt])
+}
+
+enum TransactionType {
+  deposit
+  withdrawal
+  stake
+  payout
+  fee
+}

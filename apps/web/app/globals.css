@@ -1,0 +1,240 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Light mode */
+    --background: #fafafa;
+    --foreground: #0a0a0a;
+    --surface: #ffffff;
+    --surface-secondary: #f5f5f5;
+    --surface-tertiary: #ebebeb;
+    --muted: #666666;
+    --border: #e5e5e5;
+    --gold: #b8960c;
+    --gold-dim: #9a7d0a;
+    --gold-glow: rgba(184, 150, 12, 0.2);
+  }
+
+  .dark {
+    /* Dark mode */
+    --background: #0a0a0a;
+    --foreground: #ffffff;
+    --surface: #111111;
+    --surface-secondary: #1a1a1a;
+    --surface-tertiary: #222222;
+    --muted: #888888;
+    --border: #222222;
+    --gold: #d4af37;
+    --gold-dim: #a08928;
+    --gold-glow: rgba(212, 175, 55, 0.3);
+  }
+
+  * {
+    @apply border-[var(--border)];
+  }
+
+  html {
+    background-color: var(--background);
+    color: var(--foreground);
+    @apply antialiased;
+    text-transform: lowercase;
+    letter-spacing: 0.05em;
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    @apply min-h-screen;
+    font-feature-settings: "ss01", "ss02";
+  }
+
+  /* Preserve case for inputs and specific elements */
+  input, textarea, [data-preserve-case] {
+    text-transform: none;
+  }
+
+  /* Selection */
+  ::selection {
+    background-color: var(--gold-glow);
+    color: var(--foreground);
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background-color: var(--background);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--surface-tertiary);
+    @apply rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--muted);
+  }
+}
+
+@layer components {
+  /* Slash divider motif */
+  .slash {
+    color: var(--gold);
+    @apply font-mono;
+  }
+
+  .slash::before {
+    content: "/";
+  }
+
+  .slash-divider {
+    color: var(--gold);
+    opacity: 0.4;
+    @apply font-mono mx-3;
+  }
+
+  .slash-divider::before {
+    content: "/";
+  }
+
+  /* Glow effects */
+  .glow-gold {
+    box-shadow: 0 0 20px var(--gold-glow);
+  }
+
+  .glow-gold-sm {
+    box-shadow: 0 0 10px var(--gold-glow);
+  }
+
+  .glow-gold-lg {
+    box-shadow: 0 0 40px var(--gold-glow);
+  }
+
+  .text-glow {
+    text-shadow: 0 0 20px var(--gold-glow);
+  }
+
+  /* Terminal-style data display */
+  .data-value {
+    color: var(--foreground);
+    @apply font-mono tracking-wide;
+  }
+
+  .data-label {
+    color: var(--muted);
+    @apply text-sm tracking-wider;
+    text-transform: uppercase;
+    font-size: 0.7rem;
+    letter-spacing: 0.15em;
+  }
+
+  /* Gold accent border */
+  .border-gold-glow {
+    border: 1px solid var(--gold);
+    border-opacity: 0.2;
+    box-shadow: 0 0 10px var(--gold-glow), inset 0 0 10px var(--gold-glow);
+  }
+
+  /* Animated underline */
+  .hover-underline {
+    @apply relative;
+  }
+
+  .hover-underline::after {
+    content: "";
+    background-color: var(--gold);
+    @apply absolute bottom-0 left-0 w-0 h-px transition-all duration-300;
+  }
+
+  .hover-underline:hover::after {
+    @apply w-full;
+  }
+
+  /* Focus ring */
+  .focus-gold {
+    @apply focus:outline-none focus:ring-1 focus:ring-offset-1;
+    --tw-ring-color: var(--gold);
+    --tw-ring-offset-color: var(--background);
+  }
+
+  /* Micro-animation on hover */
+  .hover-lift {
+    @apply transition-transform duration-200;
+  }
+
+  .hover-lift:hover {
+    @apply -translate-y-px;
+  }
+
+  /* Terminal cursor blink */
+  .cursor-blink::after {
+    content: "_";
+    color: var(--gold);
+    @apply animate-pulse;
+  }
+
+  /* Surface backgrounds */
+  .bg-surface {
+    background-color: var(--surface);
+  }
+
+  .bg-surface-secondary {
+    background-color: var(--surface-secondary);
+  }
+
+  .text-muted-custom {
+    color: var(--muted);
+  }
+
+  .text-gold {
+    color: var(--gold);
+  }
+
+  .border-custom {
+    border-color: var(--border);
+  }
+}
+
+@layer utilities {
+  /* Number styling - monospace */
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+    @apply font-mono;
+  }
+
+  /* Wide kerning utility */
+  .tracking-terminal {
+    letter-spacing: 0.12em;
+  }
+
+  /* Fade animations */
+  .animate-in {
+    animation: fade-up 0.4s ease-out forwards;
+  }
+
+  /* Slash pattern background */
+  .slash-pattern {
+    background-image: repeating-linear-gradient(
+      135deg,
+      transparent,
+      transparent 10px,
+      var(--gold-glow) 10px,
+      var(--gold-glow) 11px
+    );
+  }
+}
+
+/* RainbowKit theme overrides */
+[data-rk] {
+  --rk-colors-accentColor: var(--gold) !important;
+  --rk-colors-accentColorForeground: var(--background) !important;
+  --rk-colors-modalBackground: var(--surface) !important;
+  --rk-colors-modalBorder: var(--border) !important;
+}
