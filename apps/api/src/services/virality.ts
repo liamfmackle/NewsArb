@@ -1,5 +1,8 @@
 import { prisma } from "../lib/prisma.js";
 
+// Local type for trend (matches Prisma enum)
+type TrendType = "rising" | "stable" | "declining";
+
 // Types for virality metrics
 interface RawMetrics {
   articleCount: number;
@@ -287,7 +290,7 @@ export async function getViralityHistory(
     },
   });
 
-  return snapshots.map((s) => ({
+  return snapshots.map((s: { timestamp: Date; viralityScore: number; trend: TrendType; velocityChange: number }) => ({
     timestamp: s.timestamp,
     score: s.viralityScore,
     trend: s.trend,
@@ -331,11 +334,11 @@ export async function isViralityDecaying(storyId: string): Promise<{
   }
 
   // Condition 1: All declining for 3 consecutive checks
-  const allDeclining = snapshots.every((s) => s.trend === "declining");
+  const allDeclining = snapshots.every((s: { trend: TrendType }) => s.trend === "declining");
 
   // Condition 2: Sustained negative velocity
   const avgVelocity =
-    snapshots.reduce((sum, s) => sum + s.velocityChange, 0) / snapshots.length;
+    snapshots.reduce((sum: number, s: { velocityChange: number }) => sum + s.velocityChange, 0) / snapshots.length;
   const sustainedDecline = avgVelocity < -5;
 
   // Condition 3: Dropped 40% from peak

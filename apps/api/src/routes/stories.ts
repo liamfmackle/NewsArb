@@ -128,7 +128,7 @@ export async function storiesRoutes(fastify: FastifyInstance) {
     const embedding = await generateEmbedding(`${title} ${description}`);
 
     // Create story, market, and position in transaction
-    const story = await prisma.$transaction(async (tx) => {
+    const story = await prisma.$transaction(async (tx: typeof prisma) => {
       // Create or find canonical event if this is the first story of its kind
       let canonicalEventId: string | null = null;
 
