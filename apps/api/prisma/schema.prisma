@@ -53,6 +53,19 @@ model Story {
   safetyFlags      String?     // JSON string for SQLite compatibility
   embedding        String?     // JSON string of float array for SQLite compatibility
 
+  // Entity extraction (JSON strings for matching)
+  entitiesPeople       String? // JSON array of person names
+  entitiesOrgs         String? // JSON array of organization names
+  entitiesLocations    String? // JSON array of location names
+  entitiesEvents       String? // JSON array of specific event names
+  entitiesTopics       String? // JSON array of topic/theme names
+  entitiesExtractedAt  DateTime? // When entities were extracted
+
+  // Match metadata
+  matchedToMarketId    String?   // If this submission was matched to existing market
+  matchConfidence      Float?    // Confidence score of the match
+  matchDecision        String?   // "exact_match", "likely_match", "user_confirmed", "create_new"
+
   // Virality tracking
   currentViralityScore Float?
   peakViralityScore    Float?
@@ -70,6 +83,7 @@ model Story {
   @@index([createdAt])
   @@index([submitterId])
   @@index([canonicalEventId])
+  @@index([matchedToMarketId])
 }
 
 enum ViralityTrend {
@@ -83,12 +97,26 @@ model CanonicalEvent {
   title       String   // Representative title for the event
   description String?  // Summary of the event
   embedding   String?  // Primary embedding for similarity matching
+
+  // Aggregated entities from all linked stories
+  entitiesPeople    String? // JSON array - union of all story entities
+  entitiesOrgs      String? // JSON array - union of all story entities
+  entitiesLocations String? // JSON array - union of all story entities
+  entitiesEvents    String? // JSON array - union of all story entities
+  entitiesTopics    String? // JSON array - union of all story entities
+
+  // Event metadata
+  category        String?   // Primary category of the event
+  sourceDomains   String?   // JSON array of all source domains
+  storyCount      Int       @default(1) // Number of linked stories
+
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   stories Story[] // All stories linked to this event
 
   @@index([createdAt])
+  @@index([category])
 }
 
 enum StoryStatus {
