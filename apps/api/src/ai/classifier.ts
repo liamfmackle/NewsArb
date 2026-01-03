@@ -208,7 +208,7 @@ export async function findRelatedStories(
       take: limit,
     });
 
-    return canonicalStories.map((s) => ({
+    return canonicalStories.map((s: { id: string; title: string }) => ({
       id: s.id,
       title: s.title,
       similarity: 1.0, // Same canonical event = highly related
@@ -230,7 +230,7 @@ export async function findRelatedStories(
   });
 
   const withSimilarity = otherStories
-    .map((s) => {
+    .map((s: { id: string; title: string; embedding: string | null }) => {
       const embedding = JSON.parse(s.embedding!) as number[];
       return {
         id: s.id,
@@ -238,8 +238,8 @@ export async function findRelatedStories(
         similarity: cosineSimilarity(storyEmbedding, embedding),
       };
     })
-    .filter((s) => s.similarity >= 0.7) // Related threshold is lower than duplicate
-    .sort((a, b) => b.similarity - a.similarity)
+    .filter((s: { id: string; title: string; similarity: number }) => s.similarity >= 0.7) // Related threshold is lower than duplicate
+    .sort((a: { similarity: number }, b: { similarity: number }) => b.similarity - a.similarity)
     .slice(0, limit);
 
   return withSimilarity;

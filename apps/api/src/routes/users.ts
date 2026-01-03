@@ -2,6 +2,32 @@ import { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 
+// Local types for position data
+interface StoryData {
+  id: string;
+  title: string;
+  sourceDomain: string;
+}
+
+interface MarketData {
+  id: string;
+  totalPool: number;
+  status: string;
+  story: StoryData | null;
+}
+
+interface PositionWithMarket {
+  id: string;
+  userId: string;
+  marketId: string;
+  stakeAmount: number;
+  entryPoolSize: number;
+  entryTime: Date;
+  payoutAmount: number | null;
+  status: string;
+  market: MarketData | null;
+}
+
 const updateProfileSchema = z.object({
   displayName: z.string().min(1).max(50).optional(),
 });
@@ -79,7 +105,7 @@ export async function usersRoutes(fastify: FastifyInstance) {
     });
 
     // Flatten the response
-    return positions.map((pos) => ({
+    return positions.map((pos: PositionWithMarket) => ({
       id: pos.id,
       userId: pos.userId,
       marketId: pos.marketId,

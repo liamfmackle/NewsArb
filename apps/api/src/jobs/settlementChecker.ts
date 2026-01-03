@@ -2,6 +2,14 @@ import { prisma } from "../lib/prisma.js";
 import { isViralityDecaying } from "../services/virality.js";
 import { deleteCache } from "../lib/redis.js";
 
+// Position type for this module
+interface PositionData {
+  id: string;
+  userId: string;
+  stakeAmount: number;
+  entryPoolSize: number;
+}
+
 // Interval in milliseconds (15 minutes)
 const SETTLEMENT_CHECK_INTERVAL = 15 * 60 * 1000;
 
@@ -121,14 +129,14 @@ export async function settleMarket(
 
   // Calculate weights: weight = stake / entryPoolSize
   let totalWeight = 0;
-  const positionWeights = market.positions.map((pos) => {
+  const positionWeights = market.positions.map((pos: PositionData) => {
     const weight = pos.stakeAmount / pos.entryPoolSize;
     totalWeight += weight;
     return { ...pos, weight };
   });
 
   // Distribute pool proportionally
-  await prisma.$transaction(async (tx) => {
+  await prisma.$transaction(async (tx: typeof prisma) => {
     for (const pos of positionWeights) {
       const payout = (pos.weight / totalWeight) * distributablePool;
 
