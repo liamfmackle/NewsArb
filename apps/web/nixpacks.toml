@@ -1,8 +1,10 @@
+# Deploy from repo root with NIXPACKS_CONFIG_FILE=apps/web/nixpacks.toml
+
 [phases.install]
-cmds = ["pnpm install --no-frozen-lockfile"]
+cmds = ["corepack enable", "pnpm install --no-frozen-lockfile"]
 
 [phases.build]
-cmds = ["pnpm build"]
+cmds = ["pnpm --filter @newsarb/web build"]
 
 [start]
-cmd = "pnpm start"
+cmd = "cd apps/web && pnpm start"
