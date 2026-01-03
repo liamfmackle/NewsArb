@@ -2,11 +2,13 @@ import Fastify from "fastify";
 import cors from "@fastify/cors";
 import jwt from "@fastify/jwt";
 import rateLimit from "@fastify/rate-limit";
+import rawBody from "fastify-raw-body";
 import { authRoutes } from "./routes/auth.js";
 import { storiesRoutes } from "./routes/stories.js";
 import { marketsRoutes } from "./routes/markets.js";
 import { usersRoutes } from "./routes/users.js";
 import { viralityRoutes } from "./routes/virality.js";
+import { paymentRoutes } from "./routes/payments.js";
 import { prisma } from "./lib/prisma.js";
 import { startViralityTracker, stopViralityTracker } from "./jobs/viralityTracker.js";
 import { startSettlementChecker, stopSettlementChecker } from "./jobs/settlementChecker.js";
@@ -36,6 +38,13 @@ await fastify.register(jwt, {
 await fastify.register(rateLimit, {
   max: 100,
   timeWindow: "1 minute",
+});
+
+// Raw body support for Stripe webhooks
+await fastify.register(rawBody, {
+  field: "rawBody",
+  global: false,
+  runFirst: true,
 });
 
 // Auth decorator - verifies JWT token
@@ -77,6 +86,7 @@ await fastify.register(storiesRoutes, { prefix: "/stories" });
 await fastify.register(marketsRoutes, { prefix: "/markets" });
 await fastify.register(usersRoutes, { prefix: "/users" });
 await fastify.register(viralityRoutes, { prefix: "/virality" });
+await fastify.register(paymentRoutes, { prefix: "/payments" });
 
 // Start server
 const start = async () => {
