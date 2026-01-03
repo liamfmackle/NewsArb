@@ -18,7 +18,7 @@ import { getCache, setCache, deleteCache } from "../lib/redis.js";
 
 const createStorySchema = z.object({
   title: z.string().min(5).max(200),
-  url: z.string().url(),
+  url: z.string().url().optional().or(z.literal("")),
   description: z.string().min(10).max(1000),
   initialStake: z.number().min(1),
   // Optional: user explicitly chooses to create new market even if match exists
@@ -29,7 +29,7 @@ const createStorySchema = z.object({
 
 const checkMatchSchema = z.object({
   title: z.string().min(5).max(200),
-  url: z.string().url(),
+  url: z.string().url().optional().or(z.literal("")),
   description: z.string().min(10).max(1000),
 });
 
@@ -115,7 +115,7 @@ export async function storiesRoutes(fastify: FastifyInstance) {
     }
 
     const { title, url, description } = result.data;
-    const sourceDomain = new URL(url).hostname.replace("www.", "");
+    const sourceDomain = url ? new URL(url).hostname.replace("www.", "") : "user";
 
     // Check for exact URL duplicate first
     const duplicateCheck = await checkDuplicateStory(title, description, url);
@@ -195,8 +195,8 @@ export async function storiesRoutes(fastify: FastifyInstance) {
       return reply.status(400).send({ message: "Insufficient balance" });
     }
 
-    // Extract domain from URL
-    const sourceDomain = new URL(url).hostname.replace("www.", "");
+    // Extract domain from URL (or use "user" if no URL provided)
+    const sourceDomain = url ? new URL(url).hostname.replace("www.", "") : "user";
 
     // Check for exact URL duplicate
     const duplicateCheck = await checkDuplicateStory(title, description, url);

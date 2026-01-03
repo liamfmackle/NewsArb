@@ -71,15 +71,13 @@ export default function SubmitStoryPage() {
       setError("Title is required");
       return;
     }
-    if (!formData.url.trim()) {
-      setError("URL is required");
-      return;
-    }
-    try {
-      new URL(formData.url);
-    } catch {
-      setError("Please enter a valid URL");
-      return;
+    if (formData.url.trim()) {
+      try {
+        new URL(formData.url);
+      } catch {
+        setError("Please enter a valid URL");
+        return;
+      }
     }
     if (!formData.description.trim()) {
       setError("Description is required");
@@ -128,7 +126,7 @@ export default function SubmitStoryPage() {
             </div>
 
             <div>
-              <Label htmlFor="url">Source URL</Label>
+              <Label htmlFor="url">Source URL (optional)</Label>
               <Input
                 id="url"
                 type="url"

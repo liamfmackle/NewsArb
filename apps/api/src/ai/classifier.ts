@@ -15,7 +15,7 @@ interface ClassificationResult {
 export async function classifyStory(
   title: string,
   description: string,
-  url: string
+  url?: string
 ): Promise<ClassificationResult> {
   // If no API key, return default approval
   if (!process.env.OPENAI_API_KEY) {
@@ -47,7 +47,7 @@ Be strict about rejecting:
         },
         {
           role: "user",
-          content: `Title: ${title}\n\nDescription: ${description}\n\nURL: ${url}`,
+          content: `Title: ${title}\n\nDescription: ${description}${url ? `\n\nURL: ${url}` : ""}`,
         },
       ],
       response_format: { type: "json_object" },
@@ -106,29 +106,31 @@ export interface DuplicateCheckResult {
 export async function checkDuplicateStory(
   title: string,
   description: string,
-  url: string
+  url?: string
 ): Promise<DuplicateCheckResult> {
-  // Check for exact URL match first
-  const urlMatch = await prisma.story.findFirst({
-    where: { url },
-    select: {
-      id: true,
-      title: true,
-      canonicalEventId: true,
-    },
-  });
-
-  if (urlMatch) {
-    return {
-      isDuplicate: true,
-      similarStory: {
-        id: urlMatch.id,
-        title: urlMatch.title,
-        similarity: 1.0,
-        canonicalEventId: urlMatch.canonicalEventId,
+  // Check for exact URL match first (only if URL provided)
+  if (url) {
+    const urlMatch = await prisma.story.findFirst({
+      where: { url },
+      select: {
+        id: true,
+        title: true,
+        canonicalEventId: true,
       },
-      canonicalEventId: urlMatch.canonicalEventId || undefined,
-    };
+    });
+
+    if (urlMatch) {
+      return {
+        isDuplicate: true,
+        similarStory: {
+          id: urlMatch.id,
+          title: urlMatch.title,
+          similarity: 1.0,
+          canonicalEventId: urlMatch.canonicalEventId,
+        },
+        canonicalEventId: urlMatch.canonicalEventId || undefined,
+      };
+    }
   }
 
   // Generate embedding for the new story
