@@ -16,20 +16,19 @@ export function StoryCard({ story }: StoryCardProps) {
   return (
     <Card className="hover-lift bg-surface border-border hover:border-gold/30 transition-all duration-200">
       <CardHeader className="pb-3">
-        <div className="flex items-start justify-between gap-2">
-          <CardTitle className="text-lg leading-tight font-normal">
-            <Link
-              href={`/stories/${story.id}`}
-              className="hover-underline"
-            >
-              {truncateText(story.title, 80)}
-            </Link>
-          </CardTitle>
-        </div>
-        <div className="flex items-center gap-2 text-sm text-muted-custom">
+        <CardTitle className="text-lg leading-tight font-normal">
+          <Link
+            href={`/stories/${story.id}`}
+            className="hover-underline"
+          >
+            {truncateText(story.title, 80)}
+          </Link>
+        </CardTitle>
+        <div className="flex items-center gap-3 text-sm text-muted-custom">
           <span className="font-mono">{story.sourceDomain}</span>
-          <span className="slash-divider" />
+          <span className="slash-divider mx-0" />
           <span>{formatRelativeTime(new Date(story.createdAt))}</span>
+          <span className="slash-divider mx-0" />
           <ViralityBadgeCompact
             score={story.currentViralityScore ?? null}
             trend={story.viralityTrend ?? null}
