@@ -38,14 +38,14 @@ export default function SubmitStoryPage() {
       router.push(`/stories/${story.id}`);
     },
     onError: (err) => {
-      setError(err instanceof Error ? err.message : "Failed to submit story");
+      setError(err instanceof Error ? err.message : "failed to submit story");
     },
   });
 
   if (status === "loading") {
     return (
       <div className="max-w-2xl mx-auto">
-        <div className="h-96 bg-muted animate-pulse rounded-lg" />
+        <div className="h-96 bg-[var(--surface-secondary)] animate-pulse rounded-lg" />
       </div>
     );
   }
@@ -53,11 +53,11 @@ export default function SubmitStoryPage() {
   if (status === "unauthenticated") {
     return (
       <div className="max-w-2xl mx-auto text-center py-12">
-        <p className="text-muted-foreground mb-4">
-          You need to sign in to submit a story
+        <p className="text-[var(--muted)] mb-4">
+          you need to sign in to submit a story
         </p>
         <Link href="/login">
-          <Button>Sign In</Button>
+          <Button>sign in</Button>
         </Link>
       </div>
     );
@@ -68,24 +68,24 @@ export default function SubmitStoryPage() {
     setError(null);
 
     if (!formData.title.trim()) {
-      setError("Title is required");
+      setError("title is required");
       return;
     }
     if (formData.url.trim()) {
       try {
         new URL(formData.url);
       } catch {
-        setError("Please enter a valid URL");
+        setError("please enter a valid url");
         return;
       }
     }
     if (!formData.description.trim()) {
-      setError("Description is required");
+      setError("description is required");
       return;
     }
     const stake = parseFloat(formData.initialStake);
     if (isNaN(stake) || stake <= 0) {
-      setError("Please enter a valid stake amount");
+      setError("please enter a valid stake amount");
       return;
     }
 
@@ -96,37 +96,37 @@ export default function SubmitStoryPage() {
     <div className="max-w-2xl mx-auto">
       <Link
         href="/stories"
-        className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground mb-6"
+        className="inline-flex items-center gap-1 text-[var(--muted)] hover:text-[var(--foreground)] mb-6"
       >
         <ArrowLeft className="h-4 w-4" />
-        Back to Stories
+        back to stories
       </Link>
 
       <Card>
         <CardHeader>
-          <CardTitle>Submit a Breaking Story</CardTitle>
+          <CardTitle>submit a breaking story</CardTitle>
           <CardDescription>
-            Share a news story you believe will go viral. Your initial stake
+            share a news story you believe will go viral. your initial stake
             seeds the market and positions you as the first backer.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <Label htmlFor="title">Story Title</Label>
+              <Label htmlFor="title">story title</Label>
               <Input
                 id="title"
                 value={formData.title}
                 onChange={(e) =>
                   setFormData((prev) => ({ ...prev, title: e.target.value }))
                 }
-                placeholder="Enter a concise, descriptive title"
+                placeholder="enter a concise, descriptive title"
                 className="mt-1"
               />
             </div>
 
             <div>
-              <Label htmlFor="url">Source URL (optional)</Label>
+              <Label htmlFor="url">source url (optional)</Label>
               <Input
                 id="url"
                 type="url"
@@ -140,7 +140,7 @@ export default function SubmitStoryPage() {
             </div>
 
             <div>
-              <Label htmlFor="description">Description</Label>
+              <Label htmlFor="description">description</Label>
               <textarea
                 id="description"
                 value={formData.description}
@@ -150,13 +150,13 @@ export default function SubmitStoryPage() {
                     description: e.target.value,
                   }))
                 }
-                placeholder="Briefly describe the story and why you think it will go viral"
-                className="mt-1 w-full min-h-[100px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                placeholder="briefly describe the story and why you think it will go viral"
+                className="mt-1 w-full min-h-[100px] rounded-md border border-[var(--border)] bg-[var(--surface-secondary)] text-[var(--foreground)] px-3 py-2 text-sm placeholder:text-[var(--muted)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--gold)] transition-colors"
               />
             </div>
 
             <div>
-              <Label htmlFor="initialStake">Initial Stake ($)</Label>
+              <Label htmlFor="initialStake">initial stake ($)</Label>
               <Input
                 id="initialStake"
                 type="number"
@@ -172,19 +172,19 @@ export default function SubmitStoryPage() {
                 placeholder="10.00"
                 className="mt-1"
               />
-              <p className="text-xs text-muted-foreground mt-1">
-                Your stake seeds the market. Minimum $1.00
+              <p className="text-xs text-[var(--muted)] mt-1">
+                your stake seeds the market. minimum $1.00
               </p>
             </div>
 
-            {error && <p className="text-sm text-destructive">{error}</p>}
+            {error && <p className="text-sm text-red-500">{error}</p>}
 
             <Button
               type="submit"
               className="w-full"
               disabled={submitMutation.isPending}
             >
-              {submitMutation.isPending ? "Submitting..." : "Submit Story"}
+              {submitMutation.isPending ? "submitting..." : "submit story"}
             </Button>
           </form>
         </CardContent>

@@ -42,8 +42,8 @@ export default function PortfolioPage() {
   if (status === "loading" || userLoading) {
     return (
       <div className="max-w-4xl mx-auto">
-        <div className="h-32 bg-muted animate-pulse rounded-lg mb-6" />
-        <div className="h-64 bg-muted animate-pulse rounded-lg" />
+        <div className="h-32 bg-[var(--surface-secondary)] animate-pulse rounded-lg mb-6" />
+        <div className="h-64 bg-[var(--surface-secondary)] animate-pulse rounded-lg" />
       </div>
     );
   }
@@ -57,19 +57,19 @@ export default function PortfolioPage() {
 
   return (
     <div className="max-w-4xl mx-auto">
-      <h1 className="text-3xl font-bold mb-8">Portfolio</h1>
+      <h1 className="text-3xl font-bold mb-8">portfolio</h1>
 
       {/* Summary Cards */}
       <div className="grid md:grid-cols-3 gap-4 mb-8">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Balance
+            <CardTitle className="text-sm font-medium text-[var(--muted)]">
+              balance
             </CardTitle>
-            <Wallet className="h-4 w-4 text-muted-foreground" />
+            <Wallet className="h-4 w-4 text-[var(--muted)]" />
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">
+            <p className="text-2xl font-bold font-mono text-[var(--gold)]">
               {formatCurrency(user?.balance || 0)}
             </p>
           </CardContent>
@@ -77,14 +77,14 @@ export default function PortfolioPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Active Stakes
+            <CardTitle className="text-sm font-medium text-[var(--muted)]">
+              active stakes
             </CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <TrendingUp className="h-4 w-4 text-[var(--muted)]" />
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">{formatCurrency(totalStaked)}</p>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-2xl font-bold font-mono">{formatCurrency(totalStaked)}</p>
+            <p className="text-xs text-[var(--muted)]">
               {activePositions.length} position
               {activePositions.length !== 1 ? "s" : ""}
             </p>
@@ -93,25 +93,25 @@ export default function PortfolioPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              KYC Status
+            <CardTitle className="text-sm font-medium text-[var(--muted)]">
+              kyc status
             </CardTitle>
           </CardHeader>
           <CardContent>
             <span
               className={`inline-block px-2 py-1 text-xs rounded-full ${
                 user?.kycStatus === "verified"
-                  ? "bg-green-100 text-green-800"
+                  ? "bg-green-500/20 text-green-400"
                   : user?.kycStatus === "pending"
-                    ? "bg-yellow-100 text-yellow-800"
-                    : "bg-gray-100 text-gray-800"
+                    ? "bg-yellow-500/20 text-yellow-400"
+                    : "bg-[var(--surface-tertiary)] text-[var(--muted)]"
               }`}
             >
               {user?.kycStatus === "verified"
-                ? "Verified"
+                ? "verified"
                 : user?.kycStatus === "pending"
-                  ? "Pending"
-                  : "Not Started"}
+                  ? "pending"
+                  : "not started"}
             </span>
           </CardContent>
         </Card>
@@ -120,7 +120,7 @@ export default function PortfolioPage() {
       {/* Active Positions */}
       <Card className="mb-8">
         <CardHeader>
-          <CardTitle>Active Positions</CardTitle>
+          <CardTitle>active positions</CardTitle>
         </CardHeader>
         <CardContent>
           {positionsLoading ? (
@@ -128,17 +128,17 @@ export default function PortfolioPage() {
               {[...Array(3)].map((_, i) => (
                 <div
                   key={i}
-                  className="h-16 bg-muted animate-pulse rounded"
+                  className="h-16 bg-[var(--surface-secondary)] animate-pulse rounded"
                 />
               ))}
             </div>
           ) : activePositions.length === 0 ? (
             <div className="text-center py-8">
-              <p className="text-muted-foreground mb-4">
-                You don&apos;t have any active positions
+              <p className="text-[var(--muted)] mb-4">
+                you don&apos;t have any active positions
               </p>
               <Link href="/stories">
-                <Button>Explore Stories</Button>
+                <Button>explore stories</Button>
               </Link>
             </div>
           ) : (
@@ -147,23 +147,23 @@ export default function PortfolioPage() {
                 <Link
                   key={position.id}
                   href={`/stories/${position.story?.id}`}
-                  className="block p-4 rounded-lg border hover:bg-muted/50 transition-colors"
+                  className="block p-4 rounded-lg border border-[var(--border)] hover:border-[var(--gold)] bg-[var(--surface-secondary)] transition-colors"
                 >
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="font-medium">
-                        {position.story?.title || "Unknown Story"}
+                        {position.story?.title || "unknown story"}
                       </p>
-                      <p className="text-sm text-muted-foreground">
-                        Staked {formatRelativeTime(new Date(position.entryTime))}
+                      <p className="text-sm text-[var(--muted)]">
+                        staked {formatRelativeTime(new Date(position.entryTime))}
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="font-semibold">
+                      <p className="font-semibold font-mono text-[var(--gold)]">
                         {formatCurrency(position.stakeAmount)}
                       </p>
-                      <p className="text-xs text-muted-foreground">
-                        Pool at entry: {formatCurrency(position.entryPoolSize)}
+                      <p className="text-xs text-[var(--muted)]">
+                        pool at entry: {formatCurrency(position.entryPoolSize)}
                       </p>
                     </div>
                   </div>
@@ -177,8 +177,8 @@ export default function PortfolioPage() {
       {/* Recent Transactions */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Recent Transactions</CardTitle>
-          <History className="h-5 w-5 text-muted-foreground" />
+          <CardTitle>recent transactions</CardTitle>
+          <History className="h-5 w-5 text-[var(--muted)]" />
         </CardHeader>
         <CardContent>
           {transactionsLoading ? (
@@ -186,33 +186,33 @@ export default function PortfolioPage() {
               {[...Array(5)].map((_, i) => (
                 <div
                   key={i}
-                  className="h-12 bg-muted animate-pulse rounded"
+                  className="h-12 bg-[var(--surface-secondary)] animate-pulse rounded"
                 />
               ))}
             </div>
           ) : !transactions || transactions.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8">
-              No transactions yet
+            <p className="text-center text-[var(--muted)] py-8">
+              no transactions yet
             </p>
           ) : (
             <div className="space-y-2">
               {transactions.slice(0, 10).map((tx) => (
                 <div
                   key={tx.id}
-                  className="flex items-center justify-between py-2 border-b last:border-0"
+                  className="flex items-center justify-between py-2 border-b border-[var(--border)] last:border-0"
                 >
                   <div>
-                    <p className="font-medium capitalize">{tx.type}</p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="font-medium">{tx.type}</p>
+                    <p className="text-xs text-[var(--muted)]">
                       {formatRelativeTime(new Date(tx.createdAt))}
                     </p>
                   </div>
                   <p
-                    className={`font-semibold ${
+                    className={`font-semibold font-mono ${
                       tx.type === "payout" || tx.type === "deposit"
-                        ? "text-green-600"
+                        ? "text-green-400"
                         : tx.type === "stake" || tx.type === "withdrawal"
-                          ? "text-red-600"
+                          ? "text-red-400"
                           : ""
                     }`}
                   >

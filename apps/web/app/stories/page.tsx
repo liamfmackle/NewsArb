@@ -19,8 +19,8 @@ export default function StoriesPage() {
   if (error) {
     return (
       <div className="text-center py-12">
-        <p className="text-destructive mb-4">Failed to load stories</p>
-        <Button onClick={() => window.location.reload()}>Retry</Button>
+        <p className="text-red-500 mb-4">failed to load stories</p>
+        <Button onClick={() => window.location.reload()}>retry</Button>
       </div>
     );
   }
@@ -29,13 +29,13 @@ export default function StoriesPage() {
     <div className="max-w-4xl mx-auto">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold">Stories</h1>
-          <p className="text-muted-foreground mt-1">
-            Discover and back breaking news stories
+          <h1 className="text-3xl font-bold">stories</h1>
+          <p className="text-[var(--muted)] mt-1">
+            discover and back breaking news
           </p>
         </div>
         <Link href="/stories/submit">
-          <Button>Submit Story</Button>
+          <Button>submit story</Button>
         </Link>
       </div>
 
@@ -44,15 +44,15 @@ export default function StoriesPage() {
           {[...Array(5)].map((_, i) => (
             <div
               key={i}
-              className="h-48 rounded-lg bg-muted animate-pulse"
+              className="h-48 rounded-lg bg-[var(--surface-secondary)] animate-pulse"
             />
           ))}
         </div>
       ) : data?.stories.length === 0 ? (
-        <div className="text-center py-12 border rounded-lg">
-          <p className="text-muted-foreground mb-4">No stories yet</p>
+        <div className="text-center py-12 border border-[var(--border)] rounded-lg bg-[var(--surface)]">
+          <p className="text-[var(--muted)] mb-4">no stories yet</p>
           <Link href="/stories/submit">
-            <Button>Be the first to submit</Button>
+            <Button>be the first to submit</Button>
           </Link>
         </div>
       ) : (

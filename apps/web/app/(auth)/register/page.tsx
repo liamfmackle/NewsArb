@@ -83,9 +83,9 @@ export default function RegisterPage() {
     <div className="flex items-center justify-center min-h-[60vh]">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle>Create Account</CardTitle>
+          <CardTitle>create account</CardTitle>
           <CardDescription>
-            Join NewsArb and start backing breaking stories
+            join newsarb and start backing breaking stories
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -155,20 +155,20 @@ export default function RegisterPage() {
               />
             </div>
 
-            {error && <p className="text-sm text-destructive">{error}</p>}
+            {error && <p className="text-sm text-red-500">{error}</p>}
 
             <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Creating account..." : "Create Account"}
+              {isLoading ? "creating account..." : "create account"}
             </Button>
           </form>
 
           <div className="relative my-6">
             <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t" />
+              <span className="w-full border-t border-[var(--border)]" />
             </div>
             <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-background px-2 text-muted-foreground">
-                Or continue with
+              <span className="bg-[var(--surface)] px-2 text-[var(--muted)]">
+                or continue with
               </span>
             </div>
           </div>
@@ -197,13 +197,13 @@ export default function RegisterPage() {
                 d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
               />
             </svg>
-            Google
+            google
           </Button>
 
-          <p className="text-center text-sm text-muted-foreground mt-6">
-            Already have an account?{" "}
-            <Link href="/login" className="text-primary hover:underline">
-              Sign in
+          <p className="text-center text-sm text-[var(--muted)] mt-6">
+            already have an account?{" "}
+            <Link href="/login" className="text-[var(--gold)] hover:underline">
+              sign in
             </Link>
           </p>
         </CardContent>
