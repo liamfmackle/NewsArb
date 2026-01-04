@@ -234,7 +234,72 @@
 /* RainbowKit theme overrides */
 [data-rk] {
   --rk-colors-accentColor: var(--gold) !important;
-  --rk-colors-accentColorForeground: var(--background) !important;
-  --rk-colors-modalBackground: var(--surface) !important;
-  --rk-colors-modalBorder: var(--border) !important;
+  --rk-colors-accentColorForeground: #000000 !important;
+  --rk-colors-modalBackground: #1a1a1a !important;
+  --rk-colors-modalBorder: #333333 !important;
+  --rk-colors-modalText: #ffffff !important;
+  --rk-colors-modalTextSecondary: #888888 !important;
+  --rk-colors-closeButton: #888888 !important;
+  --rk-colors-closeButtonBackground: #333333 !important;
+  --rk-colors-actionButtonBorder: #333333 !important;
+  --rk-colors-actionButtonSecondaryBackground: #222222 !important;
+  --rk-colors-connectButtonBackground: #1a1a1a !important;
+  --rk-colors-connectButtonText: #ffffff !important;
+  --rk-colors-profileForeground: #1a1a1a !important;
+}
+
+/* Fix wallet list spacing and visibility */
+[data-rk] [role="dialog"] {
+  background: #1a1a1a !important;
+  border: 1px solid #333333 !important;
+}
+
+[data-rk] button {
+  text-transform: none !important;
+}
+
+/* Wallet option buttons */
+[data-rk] [data-testid="rk-wallet-option"] {
+  background: #222222 !important;
+  border: 1px solid #333333 !important;
+  margin: 4px 0 !important;
+  padding: 12px !important;
+  gap: 12px !important;
+}
+
+[data-rk] [data-testid="rk-wallet-option"]:hover {
+  background: #2a2a2a !important;
+  border-color: var(--gold) !important;
+}
+
+[data-rk] [data-testid="rk-wallet-option"] span {
+  color: #ffffff !important;
+}
+
+/* Wallet logos spacing */
+[data-rk] [data-testid="rk-wallet-option"] img,
+[data-rk] [data-testid="rk-wallet-option"] svg {
+  width: 40px !important;
+  height: 40px !important;
+  margin-right: 12px !important;
+  flex-shrink: 0 !important;
+}
+
+/* Modal title and text */
+[data-rk] h1, [data-rk] h2, [data-rk] h3 {
+  color: #ffffff !important;
+}
+
+[data-rk] p, [data-rk] span {
+  color: #cccccc !important;
+}
+
+/* Close button visibility */
+[data-rk] [aria-label="Close"] {
+  background: #333333 !important;
+  color: #ffffff !important;
+}
+
+[data-rk] [aria-label="Close"]:hover {
+  background: #444444 !important;
 }
