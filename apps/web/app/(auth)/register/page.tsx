@@ -36,6 +36,16 @@ export default function RegisterPage() {
       return;
     }
 
+    if (!/[a-zA-Z]/.test(formData.password)) {
+      setError("password must contain at least one letter");
+      return;
+    }
+
+    if (!/[0-9]/.test(formData.password)) {
+      setError("password must contain at least one number");
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -133,10 +143,14 @@ export default function RegisterPage() {
                 onChange={(e) =>
                   setFormData((prev) => ({ ...prev, password: e.target.value }))
                 }
-                placeholder="at least 8 characters"
+                placeholder="min 8 chars, letter + number"
                 className="mt-1"
                 required
+                minLength={8}
               />
+              <p className="text-xs text-[var(--muted)] mt-1">
+                at least 8 characters with one letter and one number
+              </p>
             </div>
 
             <div>

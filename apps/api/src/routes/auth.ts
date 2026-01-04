@@ -4,8 +4,12 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 
 const registerSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(8),
+  email: z.string().email({ message: "Please enter a valid email address" }),
+  password: z
+    .string()
+    .min(8, { message: "Password must be at least 8 characters" })
+    .regex(/[a-zA-Z]/, { message: "Password must contain at least one letter" })
+    .regex(/[0-9]/, { message: "Password must contain at least one number" }),
   displayName: z.string().optional(),
 });
 
@@ -39,7 +43,10 @@ export async function authRoutes(fastify: FastifyInstance) {
   fastify.post("/register", authRateLimit, async (request, reply) => {
     const result = registerSchema.safeParse(request.body);
     if (!result.success) {
-      return reply.status(400).send({ message: "Invalid input", errors: result.error.flatten() });
+      // Get the first error message for a cleaner user experience
+      const firstError = result.error.errors[0];
+      const message = firstError?.message || "Invalid input";
+      return reply.status(400).send({ message, errors: result.error.flatten() });
     }
 
     const { email, password, displayName } = result.data;
