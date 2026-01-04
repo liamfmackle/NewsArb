@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
@@ -12,6 +12,23 @@ import { formatCurrency } from "@/lib/utils";
 import { CheckCircle, Loader2, ArrowRight } from "lucide-react";
 
 export default function DepositSuccessPage() {
+  return (
+    <Suspense fallback={
+      <div className="max-w-md mx-auto py-12">
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+            <p className="text-muted-foreground">Loading...</p>
+          </CardContent>
+        </Card>
+      </div>
+    }>
+      <DepositSuccessContent />
+    </Suspense>
+  );
+}
+
+function DepositSuccessContent() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
