@@ -12,32 +12,29 @@ model User {
   email         String    @unique
   passwordHash  String?
   displayName   String?
-  walletAddress String?   @unique
   googleId      String?   @unique
-  balance       Float     @default(0)
-  kycStatus     KycStatus @default(none)
   role          UserRole  @default(user)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  stories      Story[]
-  positions    Position[]
-  transactions Transaction[]
+  // Kudos system (reputation points)
+  totalKudos    Int       @default(0)
+  weeklyKudos   Int       @default(0)
+  allTimeRank   Int?
+  weeklyRank    Int?
+
+  stories       Story[]
+  submissions   Submission[]
+  kudosHistory  KudosHistory[]
 
   @@index([email])
-  @@index([walletAddress])
+  @@index([totalKudos])
+  @@index([weeklyKudos])
 }
 
 enum UserRole {
   user
   admin
-}
-
-enum KycStatus {
-  none
-  pending
-  verified
-  rejected
 }
 
 model Story {
@@ -71,19 +68,25 @@ model Story {
   peakViralityScore    Float?
   viralityTrend        ViralityTrend?
 
+  // Kudos tracking
+  kudosPool            Int       @default(0)  // Total kudos distributed for this story
+  kudosDistributed     Boolean   @default(false)  // Whether kudos have been awarded
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   submitter         User               @relation(fields: [submitterId], references: [id])
-  market            Market?
   canonicalEvent    CanonicalEvent?    @relation(fields: [canonicalEventId], references: [id])
   viralitySnapshots ViralitySnapshot[]
+  submissions       Submission[]
+  kudosHistory      KudosHistory[]
 
   @@index([status])
   @@index([createdAt])
   @@index([submitterId])
   @@index([canonicalEventId])
   @@index([matchedToMarketId])
+  @@index([kudosDistributed])
 }
 
 enum ViralityTrend {
@@ -122,33 +125,8 @@ model CanonicalEvent {
 enum StoryStatus {
   pending
   active
-  capped
+  settled    // Renamed from 'capped' - kudos have been distributed
   rejected
-}
-
-model Market {
-  id               String       @id @default(cuid())
-  storyId          String       @unique
-  totalPool        Float        @default(0)
-  participantCount Int          @default(0)
-  status           MarketStatus @default(open)
-  capThreshold     Float?
-  createdAt        DateTime     @default(now())
-  cappedAt         DateTime?
-  settledAt        DateTime?
-  settlementReason String?      // "virality_decay" | "admin_manual" | "cap_reached"
-
-  story     Story      @relation(fields: [storyId], references: [id])
-  positions Position[]
-
-  @@index([status])
-  @@index([createdAt])
-}
-
-enum MarketStatus {
-  open
-  capped
-  settled
 }
 
 model ViralitySnapshot {
@@ -173,48 +151,45 @@ model ViralitySnapshot {
   @@index([timestamp])
 }
 
-model Position {
-  id            String         @id @default(cuid())
-  userId        String
-  marketId      String
-  stakeAmount   Float
-  entryPoolSize Float
-  entryTime     DateTime       @default(now())
-  payoutAmount  Float?
-  status        PositionStatus @default(active)
-
-  user   User   @relation(fields: [userId], references: [id])
-  market Market @relation(fields: [marketId], references: [id])
-
-  @@index([userId])
-  @@index([marketId])
-  @@index([status])
-}
-
-enum PositionStatus {
-  active
-  paid_out
-}
-
-model Transaction {
-  id          String          @id @default(cuid())
+// Submission - tracks who discovered/submitted stories and when
+model Submission {
+  id          String   @id @default(cuid())
   userId      String
-  type        TransactionType
-  amount      Float
-  referenceId String?
-  createdAt   DateTime        @default(now())
+  storyId     String
+  submittedAt DateTime @default(now())
+  kudosEarned Int      @default(0)
+  isOriginal  Boolean  @default(false)  // First submitter of this story
 
-  user User @relation(fields: [userId], references: [id])
+  user  User  @relation(fields: [userId], references: [id])
+  story Story @relation(fields: [storyId], references: [id])
 
+  @@unique([userId, storyId])
   @@index([userId])
-  @@index([type])
-  @@index([createdAt])
+  @@index([storyId])
+  @@index([submittedAt])
 }
 
-enum TransactionType {
-  deposit
-  withdrawal
-  stake
-  payout
-  fee
+// KudosHistory - tracks all kudos earnings and reasons
+model KudosHistory {
+  id        String      @id @default(cuid())
+  userId    String
+  amount    Int
+  reason    KudosReason
+  storyId   String?
+  createdAt DateTime    @default(now())
+
+  user  User   @relation(fields: [userId], references: [id])
+  story Story? @relation(fields: [storyId], references: [id])
+
+  @@index([userId])
+  @@index([storyId])
+  @@index([createdAt])
+  @@index([reason])
+}
+
+enum KudosReason {
+  early_discovery    // Submitted/discovered story early
+  viral_bonus        // Story achieved high virality
+  first_discoverer   // Original discoverer of story
+  weekly_reset       // Weekly kudos reset (negative entry)
 }

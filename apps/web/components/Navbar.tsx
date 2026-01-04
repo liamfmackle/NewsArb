@@ -3,11 +3,10 @@
 import Link from "next/link";
 import { signOut } from "next-auth/react";
 import { Button } from "@/components/ui/button";
-import { WalletButton } from "@/components/WalletButton";
 import { UserMenu } from "@/components/UserMenu";
 import { useAuth } from "@/hooks/useAuth";
 import { useState } from "react";
-import { formatCurrency } from "@/lib/utils";
+import { formatKudos } from "@/lib/utils";
 
 function SlashDivider() {
   return <span className="slash-divider" />;
@@ -45,6 +44,13 @@ export function Navbar() {
             >
               submit
             </Link>
+            <SlashDivider />
+            <Link
+              href="/leaderboards"
+              className="text-[var(--muted)] hover:text-[var(--foreground)] transition-colors hover-underline px-1"
+            >
+              leaderboards
+            </Link>
             {isAuthenticated && (
               <>
                 <SlashDivider />
@@ -64,24 +70,22 @@ export function Navbar() {
               <div className="h-8 w-20 animate-pulse bg-[var(--surface-secondary)]" />
             ) : isAuthenticated ? (
               <>
-                {/* Balance display */}
+                {/* Kudos display */}
                 {user && (
                   <div className="flex items-center gap-2 px-3 py-1.5 bg-[var(--surface-secondary)] border border-[var(--border)]">
                     <span className="text-[var(--gold)] font-mono text-xs tracking-wider">
-                      bal
+                      kudos
                     </span>
                     <span className="text-sm font-mono tabular-nums">
-                      {formatCurrency(user.balance)}
+                      {formatKudos(user.totalKudos)}
                     </span>
                   </div>
                 )}
 
-                <WalletButton />
                 <UserMenu />
               </>
             ) : (
               <>
-                <WalletButton />
                 <Link href="/login">
                   <Button variant="ghost" size="sm">
                     sign in
@@ -126,6 +130,14 @@ export function Navbar() {
                 <span className="text-[var(--gold)]">/</span>
                 submit
               </Link>
+              <Link
+                href="/leaderboards"
+                className="text-[var(--muted)] hover:text-[var(--foreground)] transition-colors flex items-center gap-2"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                <span className="text-[var(--gold)]">/</span>
+                leaderboards
+              </Link>
               {isAuthenticated && (
                 <>
                   <Link
@@ -146,9 +158,9 @@ export function Navbar() {
                   </Link>
                   {user && (
                     <div className="flex items-center gap-2 text-sm font-mono mt-2 pt-2 border-t border-[var(--border)]">
-                      <span className="text-[var(--gold)]">bal</span>
+                      <span className="text-[var(--gold)]">kudos</span>
                       <span className="tabular-nums">
-                        {formatCurrency(user.balance)}
+                        {formatKudos(user.totalKudos)}
                       </span>
                     </div>
                   )}
@@ -156,8 +168,6 @@ export function Navbar() {
               )}
 
               <div className="pt-4 mt-2 border-t border-[var(--border)] space-y-3">
-                <WalletButton />
-
                 {isAuthenticated ? (
                   <Button
                     variant="outline"

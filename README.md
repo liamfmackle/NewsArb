@@ -1,20 +1,22 @@
 # NewsArb
 
-A prediction market platform for news virality. Users stake on breaking news stories they believe will go viral — early backers earn proportional returns as later participants enter the market pool.
+A reputation-based news discovery platform. Users discover breaking news stories they believe will go viral — early discoverers earn Kudos (reputation points) when stories peak in virality.
+
+**Key concept:** Kudos are non-monetary reputation points that cannot be exchanged for cash.
 
 ## Features
 
-- **Story Submission** — Submit breaking news with AI-powered classification
-- **Market Staking** — Stake on stories you believe will go viral
-- **Weighted Payouts** — Earlier backers receive higher weight in the payout pool
+- **Story Discovery** — Submit and discover breaking news with AI-powered classification
+- **Kudos System** — Earn reputation points for spotting viral stories early
+- **Early Bird Rewards** — Earlier discoverers earn more Kudos when a story peaks
 - **Virality Tracking** — Real-time virality scores based on article mentions, social signals, and search interest
-- **Automated Settlement** — Markets settle automatically when virality decays
-- **Web3 Integration** — Optional wallet connection via RainbowKit
+- **Leaderboards** — Weekly and all-time rankings for top discoverers
+- **Automated Distribution** — Kudos are distributed automatically when virality decays
 
 ## Tech Stack
 
 - **Frontend**: Next.js 14 (App Router), TypeScript, Tailwind CSS, shadcn/ui
-- **Backend**: Fastify, Prisma ORM, SQLite (dev) / PostgreSQL (prod)
+- **Backend**: Fastify, Prisma ORM, PostgreSQL
 - **Auth**: NextAuth.js (credentials + Google OAuth), JWT
 - **AI**: OpenAI GPT-4o-mini for classification and embeddings
 - **Monorepo**: Turborepo, pnpm
@@ -25,6 +27,8 @@ A prediction market platform for news virality. Users stake on breaking news sto
 
 - Node.js 18+
 - pnpm (`npm install -g pnpm`)
+- PostgreSQL (or use Railway/Supabase)
+- Redis (optional, for caching)
 
 ### Installation
 
@@ -54,11 +58,11 @@ The app will be available at:
 
 ### Environment Variables
 
-Create `.env` files in `apps/api` and `apps/web` with the following:
+See `.env.example` for required configuration:
 
 ```env
 # Database
-DATABASE_URL="file:./dev.db"
+DATABASE_URL="postgresql://user:password@localhost:5432/newsarb?schema=public"
 
 # Auth
 JWT_SECRET="your-secret-key"
@@ -71,9 +75,6 @@ GOOGLE_CLIENT_SECRET=""
 
 # Optional: OpenAI for AI classification
 OPENAI_API_KEY=""
-
-# Optional: NewsAPI for virality tracking
-NEWSAPI_KEY=""
 ```
 
 ## Project Structure
@@ -85,8 +86,8 @@ NewsArb/
 │   │   ├── prisma/          # Database schema
 │   │   └── src/
 │   │       ├── routes/      # API endpoints
-│   │       ├── services/    # Business logic
-│   │       └── jobs/        # Background jobs
+│   │       ├── services/    # Business logic (kudos, virality)
+│   │       └── jobs/        # Background jobs (kudos calculator)
 │   └── web/                 # Next.js frontend
 │       ├── app/             # App Router pages
 │       ├── components/      # React components
@@ -108,14 +109,19 @@ pnpm db:migrate       # Run migrations (production)
 
 ## How It Works
 
-### Payout Logic
+### Kudos Formula
 
 ```
-weight = stakeAmount / poolSizeAtEntry
-payout = (weight / totalWeight) * (pool - 5% fee)
+baseKudos = 100 (for participating)
+earlyBonus = max(0, 100 - (submissionOrder - 1) * 10)  # Earlier = more
+timingBonus = max(0, 50 - hoursSinceFirst * 5)         # Quick = more
+viralityBonus = floor(peakViralityScore / 10) * 5      # Viral = more
+multiplier = isFirstDiscoverer ? 2.0 : 1.0
+
+totalKudos = (base + early + timing + virality) * multiplier
 ```
 
-Earlier backers have a smaller `poolSizeAtEntry`, giving them higher weight and a larger share of the final pool.
+Earlier discoverers get higher bonuses, and the first discoverer receives a 2x multiplier.
 
 ### Virality Score
 
@@ -125,11 +131,22 @@ Stories are scored 0-100 based on:
 - Search interest (25%)
 - Engagement velocity (15%)
 
-### Settlement
+### Kudos Distribution
 
-Markets settle automatically when:
+Kudos are distributed automatically when:
 - Virality trend is declining for 3 consecutive checks, OR
 - Score drops 40%+ from peak
+
+## Terminology
+
+| Term | Definition |
+|------|------------|
+| Kudos | Non-monetary reputation points |
+| Discovery | When a user identifies a story as newsworthy |
+| Discoverer | User who discovered a story |
+| First Discoverer | Original submitter of a story (2x multiplier) |
+| Virality Score | 0-100 measure of story spread |
+| Settled | Story whose virality has peaked; Kudos distributed |
 
 ## Contributing
 

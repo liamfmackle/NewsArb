@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { formatCurrency, formatRelativeTime, truncateText } from "@/lib/utils";
+import { formatKudos, formatRelativeTime, truncateText } from "@/lib/utils";
 import { ViralityBadgeCompact } from "@/components/ViralityBadge";
 import type { Story } from "@/lib/api";
 
@@ -10,8 +10,8 @@ interface StoryCardProps {
 }
 
 export function StoryCard({ story }: StoryCardProps) {
-  const pool = story.market?.totalPool ?? 0;
-  const participants = story.market?.participantCount ?? 0;
+  const kudosPool = story.kudosPool ?? 0;
+  const discoverers = story.discovererCount ?? 0;
 
   return (
     <Card className="hover-lift bg-surface border-border hover:border-gold/30 transition-all duration-200">
@@ -48,17 +48,17 @@ export function StoryCard({ story }: StoryCardProps) {
       <CardFooter className="flex items-center justify-between pt-3 border-t border-border">
         <div className="flex items-center gap-4 text-sm font-mono">
           <span className="data-value">
-            <span className="data-label">pool</span>{" "}
-            <span className="text-gold">{formatCurrency(pool)}</span>
+            <span className="data-label">kudos</span>{" "}
+            <span className="text-gold">{formatKudos(kudosPool)}</span>
           </span>
           <span className="data-value">
-            <span className="data-label">stakers</span>{" "}
-            {participants}
+            <span className="data-label">discoverers</span>{" "}
+            {discoverers}
           </span>
         </div>
         <Link href={`/stories/${story.id}`}>
           <Button variant="gold" size="sm">
-            view market
+            view story
           </Button>
         </Link>
       </CardFooter>

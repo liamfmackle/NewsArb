@@ -4,22 +4,20 @@ import Link from "next/link";
 import { signOut } from "next-auth/react";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { DepositModal } from "@/components/DepositModal";
-import { formatCurrency } from "@/lib/utils";
+import { formatKudos, formatRank } from "@/lib/utils";
 import {
   User,
   Settings,
   LogOut,
-  Wallet,
+  Trophy,
   ChevronDown,
-  PlusCircle,
+  Star,
 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 
 export function UserMenu() {
   const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
-  const [isDepositOpen, setIsDepositOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -55,19 +53,15 @@ export function UserMenu() {
             <p className="text-xs text-muted-foreground truncate">{user.email}</p>
             <div className="flex items-center justify-between mt-2">
               <div className="flex items-center gap-1 text-xs">
-                <Wallet className="h-3 w-3" />
-                <span className="font-medium">{formatCurrency(user.balance)}</span>
+                <Star className="h-3 w-3 text-[var(--gold)]" />
+                <span className="font-medium">{formatKudos(user.totalKudos)} kudos</span>
               </div>
-              <button
-                onClick={() => {
-                  setIsOpen(false);
-                  setIsDepositOpen(true);
-                }}
-                className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 font-medium"
-              >
-                <PlusCircle className="h-3 w-3" />
-                Add Funds
-              </button>
+              {user.allTimeRank && (
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Trophy className="h-3 w-3" />
+                  <span>{formatRank(user.allTimeRank)}</span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -77,8 +71,16 @@ export function UserMenu() {
               onClick={() => setIsOpen(false)}
               className="flex items-center gap-2 px-2 py-1.5 text-sm rounded-sm hover:bg-muted"
             >
-              <Wallet className="h-4 w-4" />
+              <User className="h-4 w-4" />
               Portfolio
+            </Link>
+            <Link
+              href="/leaderboards"
+              onClick={() => setIsOpen(false)}
+              className="flex items-center gap-2 px-2 py-1.5 text-sm rounded-sm hover:bg-muted"
+            >
+              <Trophy className="h-4 w-4" />
+              Leaderboards
             </Link>
             <Link
               href="/settings"
@@ -101,11 +103,6 @@ export function UserMenu() {
           </div>
         </div>
       )}
-
-      <DepositModal
-        isOpen={isDepositOpen}
-        onClose={() => setIsDepositOpen(false)}
-      />
     </div>
   );
 }

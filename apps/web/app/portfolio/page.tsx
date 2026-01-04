@@ -8,10 +8,16 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { usersApi } from "@/lib/api";
-import { formatCurrency, formatRelativeTime } from "@/lib/utils";
-import { Wallet, TrendingUp, History } from "lucide-react";
+import { formatKudos, formatRelativeTime, formatRank } from "@/lib/utils";
+import { Star, Trophy, History, Sparkles } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getTransactionColor, getStatusColors } from "@/lib/colors";
+
+const reasonLabels: Record<string, string> = {
+  early_discovery: "Early Discovery",
+  viral_bonus: "Viral Bonus",
+  first_discoverer: "First Discoverer",
+  weekly_reset: "Weekly Reset",
+};
 
 export default function PortfolioPage() {
   const { data: session, status } = useSession();
@@ -29,15 +35,21 @@ export default function PortfolioPage() {
     enabled: !!session?.accessToken,
   });
 
-  const { data: positions, isLoading: positionsLoading } = useQuery({
-    queryKey: ["positions"],
-    queryFn: () => usersApi.positions(session?.accessToken as string),
+  const { data: kudosStats, isLoading: kudosLoading } = useQuery({
+    queryKey: ["kudos-stats"],
+    queryFn: () => usersApi.kudos(session?.accessToken as string),
     enabled: !!session?.accessToken,
   });
 
-  const { data: transactions, isLoading: transactionsLoading } = useQuery({
-    queryKey: ["transactions"],
-    queryFn: () => usersApi.transactions(session?.accessToken as string),
+  const { data: submissions, isLoading: submissionsLoading } = useQuery({
+    queryKey: ["submissions"],
+    queryFn: () => usersApi.submissions(session?.accessToken as string),
+    enabled: !!session?.accessToken,
+  });
+
+  const { data: kudosHistory, isLoading: historyLoading } = useQuery({
+    queryKey: ["kudos-history"],
+    queryFn: () => usersApi.kudosHistory(session?.accessToken as string, 20),
     enabled: !!session?.accessToken,
   });
 
@@ -54,8 +66,8 @@ export default function PortfolioPage() {
     return null;
   }
 
-  const activePositions = positions?.filter((p) => p.status === "active") || [];
-  const totalStaked = activePositions.reduce((sum, p) => sum + p.stakeAmount, 0);
+  const activeSubmissions = submissions?.filter((s) => s.story?.status === "active") || [];
+  const settledSubmissions = submissions?.filter((s) => s.story?.status === "settled") || [];
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -66,29 +78,16 @@ export default function PortfolioPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-[var(--muted)]">
-              balance
+              total kudos
             </CardTitle>
-            <Wallet className="h-4 w-4 text-[var(--muted)]" />
+            <Star className="h-4 w-4 text-[var(--gold)]" />
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold font-mono text-[var(--gold)]">
-              {formatCurrency(user?.balance || 0)}
+              {formatKudos(kudosStats?.totalKudos || user?.totalKudos || 0)}
             </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-[var(--muted)]">
-              active stakes
-            </CardTitle>
-            <TrendingUp className="h-4 w-4 text-[var(--muted)]" />
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold font-mono">{formatCurrency(totalStaked)}</p>
             <p className="text-xs text-[var(--muted)]">
-              {activePositions.length} position
-              {activePositions.length !== 1 ? "s" : ""}
+              {formatKudos(kudosStats?.weeklyKudos || user?.weeklyKudos || 0)} this week
             </p>
           </CardContent>
         </Card>
@@ -96,39 +95,54 @@ export default function PortfolioPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-[var(--muted)]">
-              kyc status
+              rank
             </CardTitle>
+            <Trophy className="h-4 w-4 text-[var(--muted)]" />
           </CardHeader>
           <CardContent>
-            {(() => {
-              const status = user?.kycStatus === "verified" ? "verified" : user?.kycStatus === "pending" ? "pending" : "none";
-              const colors = getStatusColors(status);
-              return (
-                <span className={`inline-block px-2 py-1 text-xs rounded-full ${colors.bg} ${colors.text}`}>
-                  {status === "verified" ? "verified" : status === "pending" ? "pending" : "not started"}
-                </span>
-              );
-            })()}
+            <p className="text-2xl font-bold font-mono">
+              {formatRank(kudosStats?.allTimeRank || user?.allTimeRank || null)}
+            </p>
+            <p className="text-xs text-[var(--muted)]">
+              weekly: {formatRank(kudosStats?.weeklyRank || user?.weeklyRank || null)}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-[var(--muted)]">
+              discoveries
+            </CardTitle>
+            <Sparkles className="h-4 w-4 text-[var(--muted)]" />
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold font-mono">
+              {kudosStats?.totalDiscoveries || submissions?.length || 0}
+            </p>
+            <p className="text-xs text-[var(--muted)]">
+              {kudosStats?.originalDiscoveries || submissions?.filter(s => s.isOriginal).length || 0} first discoveries
+            </p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Active Positions */}
+      {/* Active Discoveries */}
       <Card className="mb-8">
         <CardHeader>
-          <CardTitle>active positions</CardTitle>
+          <CardTitle>active discoveries</CardTitle>
         </CardHeader>
         <CardContent>
-          {positionsLoading ? (
+          {submissionsLoading ? (
             <div className="space-y-2">
               {[...Array(3)].map((_, i) => (
                 <Skeleton key={i} className="h-16 rounded" />
               ))}
             </div>
-          ) : activePositions.length === 0 ? (
+          ) : activeSubmissions.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-[var(--muted)] mb-4">
-                you don&apos;t have any active positions
+                you haven&apos;t discovered any active stories
               </p>
               <Link href="/stories">
                 <Button>explore stories</Button>
@@ -136,27 +150,34 @@ export default function PortfolioPage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {activePositions.map((position) => (
+              {activeSubmissions.map((submission) => (
                 <Link
-                  key={position.id}
-                  href={`/stories/${position.story?.id}`}
+                  key={submission.id}
+                  href={`/stories/${submission.storyId}`}
                   className="block p-4 rounded-lg border border-[var(--border)] hover:border-[var(--gold)] bg-[var(--surface-secondary)] transition-colors"
                 >
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="font-medium">
-                        {position.story?.title || "unknown story"}
+                      <p className="font-medium flex items-center gap-2">
+                        {submission.story?.title || "unknown story"}
+                        {submission.isOriginal && (
+                          <span className="text-xs px-2 py-0.5 bg-[var(--gold)]/10 text-[var(--gold)] rounded">
+                            first
+                          </span>
+                        )}
                       </p>
                       <p className="text-sm text-[var(--muted)]">
-                        staked {formatRelativeTime(new Date(position.entryTime))}
+                        discovered {formatRelativeTime(new Date(submission.submittedAt))}
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="font-semibold font-mono text-[var(--gold)]">
-                        {formatCurrency(position.stakeAmount)}
-                      </p>
+                      {submission.kudosEarned > 0 && (
+                        <p className="font-semibold font-mono text-[var(--gold)]">
+                          +{formatKudos(submission.kudosEarned)} kudos
+                        </p>
+                      )}
                       <p className="text-xs text-[var(--muted)]">
-                        pool at entry: {formatCurrency(position.entryPoolSize)}
+                        {submission.story?.status || "pending"}
                       </p>
                     </div>
                   </div>
@@ -167,39 +188,86 @@ export default function PortfolioPage() {
         </CardContent>
       </Card>
 
-      {/* Recent Transactions */}
+      {/* Settled Discoveries */}
+      {settledSubmissions.length > 0 && (
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle>settled discoveries</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {settledSubmissions.slice(0, 5).map((submission) => (
+                <Link
+                  key={submission.id}
+                  href={`/stories/${submission.storyId}`}
+                  className="block p-4 rounded-lg border border-[var(--border)] hover:border-[var(--gold)] bg-[var(--surface-secondary)] transition-colors"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium flex items-center gap-2">
+                        {submission.story?.title || "unknown story"}
+                        {submission.isOriginal && (
+                          <span className="text-xs px-2 py-0.5 bg-[var(--gold)]/10 text-[var(--gold)] rounded">
+                            first
+                          </span>
+                        )}
+                      </p>
+                      <p className="text-sm text-[var(--muted)]">
+                        discovered {formatRelativeTime(new Date(submission.submittedAt))}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-semibold font-mono text-[var(--gold)]">
+                        +{formatKudos(submission.kudosEarned)} kudos
+                      </p>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Kudos History */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>recent transactions</CardTitle>
+          <CardTitle>kudos history</CardTitle>
           <History className="h-5 w-5 text-[var(--muted)]" />
         </CardHeader>
         <CardContent>
-          {transactionsLoading ? (
+          {historyLoading ? (
             <div className="space-y-2">
               {[...Array(5)].map((_, i) => (
                 <Skeleton key={i} className="h-12 rounded" />
               ))}
             </div>
-          ) : !transactions || transactions.length === 0 ? (
+          ) : !kudosHistory || kudosHistory.length === 0 ? (
             <p className="text-center text-[var(--muted)] py-8">
-              no transactions yet
+              no kudos earned yet
             </p>
           ) : (
             <div className="space-y-2">
-              {transactions.slice(0, 10).map((tx) => (
+              {kudosHistory.map((entry) => (
                 <div
-                  key={tx.id}
+                  key={entry.id}
                   className="flex items-center justify-between py-2 border-b border-[var(--border)] last:border-0"
                 >
                   <div>
-                    <p className="font-medium">{tx.type}</p>
+                    <p className="font-medium">
+                      {reasonLabels[entry.reason] || entry.reason}
+                    </p>
+                    {entry.story && (
+                      <p className="text-xs text-[var(--muted)] truncate max-w-[200px]">
+                        {entry.story.title}
+                      </p>
+                    )}
                     <p className="text-xs text-[var(--muted)]">
-                      {formatRelativeTime(new Date(tx.createdAt))}
+                      {formatRelativeTime(new Date(entry.createdAt))}
                     </p>
                   </div>
-                  <p className={`font-semibold font-mono ${getTransactionColor(tx.type)}`}>
-                    {tx.type === "payout" || tx.type === "deposit" ? "+" : "-"}
-                    {formatCurrency(Math.abs(tx.amount))}
+                  <p className={`font-semibold font-mono ${entry.amount >= 0 ? 'text-[var(--gold)]' : 'text-red-500'}`}>
+                    {entry.amount >= 0 ? '+' : ''}{formatKudos(entry.amount)}
                   </p>
                 </div>
               ))}

@@ -32,7 +32,7 @@ export default function StoriesPage() {
         <div>
           <h1 className="text-3xl font-bold">stories</h1>
           <p className="text-[var(--muted)] mt-1">
-            discover and back breaking news
+            discover breaking news before it goes viral
           </p>
         </div>
         <Link href="/stories/submit">

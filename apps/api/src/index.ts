@@ -2,16 +2,15 @@ import Fastify from "fastify";
 import cors from "@fastify/cors";
 import jwt from "@fastify/jwt";
 import rateLimit from "@fastify/rate-limit";
-import rawBody from "fastify-raw-body";
 import { authRoutes } from "./routes/auth.js";
 import { storiesRoutes } from "./routes/stories.js";
 import { marketsRoutes } from "./routes/markets.js";
 import { usersRoutes } from "./routes/users.js";
 import { viralityRoutes } from "./routes/virality.js";
-import { paymentRoutes } from "./routes/payments.js";
+import { leaderboardsRoutes } from "./routes/leaderboards.js";
 import { prisma } from "./lib/prisma.js";
 import { startViralityTracker, stopViralityTracker } from "./jobs/viralityTracker.js";
-import { startSettlementChecker, stopSettlementChecker } from "./jobs/settlementChecker.js";
+import { startKudosCalculator, stopKudosCalculator } from "./jobs/kudosCalculator.js";
 
 // Require JWT_SECRET in production
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -40,12 +39,6 @@ await fastify.register(rateLimit, {
   timeWindow: "1 minute",
 });
 
-// Raw body support for Stripe webhooks
-await fastify.register(rawBody, {
-  field: "rawBody",
-  global: false,
-  runFirst: true,
-});
 
 // Auth decorator - verifies JWT token
 fastify.decorate("authenticate", async function (request: any, reply: any) {
@@ -86,7 +79,7 @@ await fastify.register(storiesRoutes, { prefix: "/stories" });
 await fastify.register(marketsRoutes, { prefix: "/markets" });
 await fastify.register(usersRoutes, { prefix: "/users" });
 await fastify.register(viralityRoutes, { prefix: "/virality" });
-await fastify.register(paymentRoutes, { prefix: "/payments" });
+await fastify.register(leaderboardsRoutes, { prefix: "/leaderboards" });
 
 // Start server
 const start = async () => {
@@ -97,7 +90,7 @@ const start = async () => {
 
     // Start background jobs
     startViralityTracker();
-    startSettlementChecker();
+    startKudosCalculator();
   } catch (err) {
     fastify.log.error(err);
     process.exit(1);
@@ -108,7 +101,7 @@ const start = async () => {
 const shutdown = async () => {
   console.log("Shutting down...");
   stopViralityTracker();
-  stopSettlementChecker();
+  stopKudosCalculator();
   await fastify.close();
   process.exit(0);
 };

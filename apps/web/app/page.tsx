@@ -4,10 +4,10 @@ import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { storiesApi } from "@/lib/api";
-import { formatCurrency, formatRelativeTime } from "@/lib/utils";
+import { formatKudos, formatRelativeTime } from "@/lib/utils";
 import { ViralityBadgeCompact } from "@/components/ViralityBadge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { TrendingUp, Users, ArrowRight } from "lucide-react";
+import { TrendingUp, Users, ArrowRight, Star } from "lucide-react";
 
 export default function Home() {
   const { data, isLoading } = useQuery({
@@ -22,10 +22,10 @@ export default function Home() {
       {/* Hero */}
       <section className="text-center py-16 max-w-2xl">
         <h1 className="text-5xl font-bold tracking-tight mb-4">
-          <span className="text-gold">back</span> breaking news
+          <span className="text-gold">discover</span> breaking news first
         </h1>
         <p className="text-lg text-muted-custom mb-8">
-          stake early on stories you believe will go viral.
+          be the first to spot viral stories and earn reputation.
         </p>
         <div className="flex gap-4 justify-center">
           <Link href="/stories">
@@ -46,7 +46,7 @@ export default function Home() {
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-sm tracking-terminal text-muted-custom uppercase flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-gold" />
-            trending markets
+            trending stories
           </h2>
           <Link href="/stories" className="text-sm text-muted-custom hover:text-gold flex items-center gap-1 hover-underline">
             view all <ArrowRight className="h-3 w-3" />
@@ -61,10 +61,10 @@ export default function Home() {
           </div>
         ) : stories.length === 0 ? (
           <div className="text-center py-12 border border-[var(--border)] rounded-lg bg-surface">
-            <p className="text-muted-custom mb-4">no active markets yet</p>
+            <p className="text-muted-custom mb-4">no active stories yet</p>
             <Link href="/stories/submit">
               <Button variant="outline" className="border-[var(--gold)] text-gold hover:bg-[var(--gold)] hover:text-black">
-                be the first to submit
+                be the first to discover
               </Button>
             </Link>
           </div>
@@ -84,7 +84,7 @@ export default function Home() {
                     <div className="flex items-center gap-3 mt-1 text-sm text-muted-custom">
                       <span className="flex items-center gap-1">
                         <Users className="h-3 w-3" />
-                        {story.market?.participantCount || 0}
+                        {story.discovererCount || 0} discoverers
                       </span>
                       <span className="slash-divider" />
                       <span>{formatRelativeTime(new Date(story.createdAt))}</span>
@@ -96,10 +96,11 @@ export default function Home() {
                       trend={story.viralityTrend as "rising" | "stable" | "declining" | null}
                     />
                     <div className="text-right">
-                      <div className="text-lg font-mono text-gold font-semibold">
-                        {formatCurrency(story.market?.totalPool || 0)}
+                      <div className="text-lg font-mono text-gold font-semibold flex items-center gap-1">
+                        <Star className="h-4 w-4" />
+                        {formatKudos(story.kudosPool || 0)}
                       </div>
-                      <div className="text-xs text-muted-custom">pool</div>
+                      <div className="text-xs text-muted-custom">kudos</div>
                     </div>
                   </div>
                 </div>
@@ -115,21 +116,21 @@ export default function Home() {
           <div className="flex justify-center gap-12">
             <div className="text-center">
               <div className="text-2xl font-mono text-gold font-semibold">
-                {formatCurrency(stories.reduce((sum, s) => sum + (s.market?.totalPool || 0), 0))}
+                {formatKudos(stories.reduce((sum, s) => sum + (s.kudosPool || 0), 0))}
               </div>
-              <div className="text-xs text-muted-custom tracking-terminal uppercase mt-1">total staked</div>
+              <div className="text-xs text-muted-custom tracking-terminal uppercase mt-1">kudos awarded</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-mono font-semibold">
                 {stories.length}
               </div>
-              <div className="text-xs text-muted-custom tracking-terminal uppercase mt-1">active markets</div>
+              <div className="text-xs text-muted-custom tracking-terminal uppercase mt-1">active stories</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-mono font-semibold">
-                {stories.reduce((sum, s) => sum + (s.market?.participantCount || 0), 0)}
+                {stories.reduce((sum, s) => sum + (s.discovererCount || 0), 0)}
               </div>
-              <div className="text-xs text-muted-custom tracking-terminal uppercase mt-1">participants</div>
+              <div className="text-xs text-muted-custom tracking-terminal uppercase mt-1">discoverers</div>
             </div>
           </div>
         </section>

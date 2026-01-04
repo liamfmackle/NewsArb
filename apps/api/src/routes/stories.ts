@@ -1,6 +1,7 @@
 import { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
+import { Prisma, PrismaClient } from "@prisma/client";
 import {
   classifyStory,
   checkDuplicateStory,
@@ -10,21 +11,46 @@ import {
 import {
   determineMatch,
   extractEntities,
-  verifyMatchWithAI,
   type SubmissionContext,
-  type MatchResult,
 } from "../ai/matcher.js";
 import { getCache, setCache, deleteCache } from "../lib/redis.js";
+
+type TransactionClient = Omit<PrismaClient, "$connect" | "$disconnect" | "$on" | "$transaction" | "$use" | "$extends">;
+
+type StoryWithSubmitterAndCount = {
+  id: string;
+  title: string;
+  url: string | null;
+  description: string;
+  sourceDomain: string;
+  status: string;
+  aiClassification: string | null;
+  currentViralityScore: number | null;
+  peakViralityScore: number | null;
+  viralityTrend: string | null;
+  kudosPool: number;
+  kudosDistributed: boolean;
+  createdAt: Date;
+  submitter: { id: string; displayName: string | null };
+  _count: { submissions: number };
+};
+
+type SubmissionWithUser = {
+  id: string;
+  user: { id: string; displayName: string | null };
+  submittedAt: Date;
+  kudosEarned: number;
+  isOriginal: boolean;
+};
 
 const createStorySchema = z.object({
   title: z.string().min(5).max(200),
   url: z.string().url().optional().or(z.literal("")),
   description: z.string().min(10).max(1000),
-  initialStake: z.number().min(1),
-  // Optional: user explicitly chooses to create new market even if match exists
-  forceNewMarket: z.boolean().optional(),
-  // Optional: user confirms joining a specific market
-  joinMarketId: z.string().optional(),
+  // Optional: user explicitly chooses to create new story even if match exists
+  forceNew: z.boolean().optional(),
+  // Optional: user confirms discovering an existing story
+  discoverStoryId: z.string().optional(),
 });
 
 const checkMatchSchema = z.object({
@@ -36,13 +62,17 @@ const checkMatchSchema = z.object({
 export async function storiesRoutes(fastify: FastifyInstance) {
   // List stories
   fastify.get("/", async (request) => {
-    const { page = "1", limit = "10" } = request.query as { page?: string; limit?: string };
+    const { page = "1", limit = "10", status = "active" } = request.query as {
+      page?: string;
+      limit?: string;
+      status?: string;
+    };
     const pageNum = parseInt(page, 10);
     const limitNum = Math.min(parseInt(limit, 10), 50);
     const skip = (pageNum - 1) * limitNum;
 
     // Check cache
-    const cacheKey = `stories:${pageNum}:${limitNum}`;
+    const cacheKey = `stories:${status}:${pageNum}:${limitNum}`;
     const cached = await getCache<{ stories: any[]; total: number }>(cacheKey);
     if (cached) {
       return cached;
@@ -50,18 +80,29 @@ export async function storiesRoutes(fastify: FastifyInstance) {
 
     const [stories, total] = await Promise.all([
       prisma.story.findMany({
-        where: { status: "active" },
+        where: { status: status as any },
         include: {
-          market: true,
+          submitter: {
+            select: { id: true, displayName: true },
+          },
+          _count: {
+            select: { submissions: true },
+          },
         },
         orderBy: { createdAt: "desc" },
         skip,
         take: limitNum,
       }),
-      prisma.story.count({ where: { status: "active" } }),
+      prisma.story.count({ where: { status: status as any } }),
     ]);
 
-    const result = { stories, total };
+    // Map to include discovererCount
+    const mappedStories = stories.map((story: StoryWithSubmitterAndCount) => ({
+      ...story,
+      discovererCount: story._count.submissions,
+    }));
+
+    const result = { stories: mappedStories, total };
     await setCache(cacheKey, result, 30); // Cache for 30 seconds
 
     return result;
@@ -74,9 +115,24 @@ export async function storiesRoutes(fastify: FastifyInstance) {
     const story = await prisma.story.findUnique({
       where: { id },
       include: {
-        market: true,
         submitter: {
           select: { id: true, displayName: true },
+        },
+        submissions: {
+          include: {
+            user: {
+              select: { id: true, displayName: true },
+            },
+          },
+          orderBy: { submittedAt: "asc" },
+          take: 10,
+        },
+        _count: {
+          select: { submissions: true },
+        },
+        viralitySnapshots: {
+          orderBy: { timestamp: "desc" },
+          take: 10,
         },
       },
     });
@@ -85,7 +141,17 @@ export async function storiesRoutes(fastify: FastifyInstance) {
       return reply.status(404).send({ message: "Story not found" });
     }
 
-    return story;
+    return {
+      ...story,
+      discovererCount: story._count.submissions,
+      discoverers: story.submissions.map((sub: SubmissionWithUser, index: number) => ({
+        rank: index + 1,
+        user: sub.user,
+        submittedAt: sub.submittedAt,
+        kudosEarned: sub.kudosEarned,
+        isOriginal: sub.isOriginal,
+      })),
+    };
   });
 
   // Get related stories
@@ -106,7 +172,7 @@ export async function storiesRoutes(fastify: FastifyInstance) {
     return { related };
   });
 
-  // Check for matching markets before submission (authenticated)
+  // Check for matching stories before submission (authenticated)
   // This allows the frontend to show match suggestions before committing
   fastify.post("/check-match", { preHandler: [(fastify as any).authenticate] }, async (request, reply) => {
     const result = checkMatchSchema.safeParse(request.body);
@@ -154,12 +220,10 @@ export async function storiesRoutes(fastify: FastifyInstance) {
       reasoning: matchResult.reasoning,
       suggestedAction: matchResult.suggestedAction,
       bestMatch: matchResult.bestMatch ? {
-        marketId: matchResult.bestMatch.marketId,
         storyId: matchResult.bestMatch.storyId,
         title: matchResult.bestMatch.title,
         description: matchResult.bestMatch.description,
-        totalPool: matchResult.bestMatch.totalPool,
-        participantCount: matchResult.bestMatch.participantCount,
+        discovererCount: matchResult.bestMatch.participantCount,
         scores: {
           semantic: Math.round(matchResult.bestMatch.semanticScore * 100),
           entity: Math.round(matchResult.bestMatch.entityScore * 100),
@@ -168,45 +232,49 @@ export async function storiesRoutes(fastify: FastifyInstance) {
         },
       } : null,
       otherCandidates: matchResult.candidates.slice(1, 5).map((c) => ({
-        marketId: c.marketId,
         storyId: c.storyId,
         title: c.title,
-        totalPool: c.totalPool,
-        participantCount: c.participantCount,
+        discovererCount: c.participantCount,
         composite: Math.round(c.compositeScore * 100),
       })),
       entities, // Return extracted entities for display
     };
   });
 
-  // Create story (authenticated)
+  // Create story / Submit discovery (authenticated)
   fastify.post("/", { preHandler: [(fastify as any).authenticate] }, async (request, reply) => {
     const result = createStorySchema.safeParse(request.body);
     if (!result.success) {
       return reply.status(400).send({ message: "Invalid input", errors: result.error.flatten() });
     }
 
-    const { title, url, description, initialStake, forceNewMarket, joinMarketId } = result.data;
+    const { title, url, description, forceNew, discoverStoryId } = result.data;
     const userId = (request as any).user.userId;
-
-    // Check user balance
-    const user = await prisma.user.findUnique({ where: { id: userId } });
-    if (!user || user.balance < initialStake) {
-      return reply.status(400).send({ message: "Insufficient balance" });
-    }
 
     // Extract domain from URL (or use "user" if no URL provided)
     const sourceDomain = url ? new URL(url).hostname.replace("www.", "") : "user";
 
+    // If user wants to discover an existing story
+    if (discoverStoryId) {
+      return await discoverExistingStory(userId, discoverStoryId, reply);
+    }
+
     // Check for exact URL duplicate
     const duplicateCheck = await checkDuplicateStory(title, description, url);
     if (duplicateCheck.isDuplicate && duplicateCheck.similarStory) {
-      return reply.status(409).send({
-        message: "A similar story already exists",
-        similarStory: {
+      // Instead of rejecting, offer to discover the existing story
+      return reply.status(300).send({
+        message: "This story already exists. Would you like to discover it?",
+        existingStory: {
           id: duplicateCheck.similarStory.id,
           title: duplicateCheck.similarStory.title,
-          similarity: Math.round(duplicateCheck.similarStory.similarity * 100),
+        },
+        actions: {
+          discover: {
+            method: "POST",
+            path: "/stories",
+            body: { ...result.data, discoverStoryId: duplicateCheck.similarStory.id },
+          },
         },
       });
     }
@@ -218,25 +286,8 @@ export async function storiesRoutes(fastify: FastifyInstance) {
     // AI classification
     const classification = await classifyStory(title, description, url);
 
-    // If user wants to join a specific market, validate and add stake
-    if (joinMarketId) {
-      return await joinExistingMarket(
-        userId,
-        joinMarketId,
-        initialStake,
-        title,
-        description,
-        url,
-        sourceDomain,
-        embedding,
-        entities,
-        classification,
-        reply
-      );
-    }
-
-    // Run the matcher unless user explicitly wants a new market
-    if (!forceNewMarket) {
+    // Run the matcher unless user explicitly wants a new story
+    if (!forceNew) {
       const submission: SubmissionContext = {
         title,
         description,
@@ -249,60 +300,69 @@ export async function storiesRoutes(fastify: FastifyInstance) {
 
       const matchResult = await determineMatch(submission);
 
-      // For exact matches, auto-join the existing market
+      // For exact matches, offer to discover existing story
       if (matchResult.decision === "exact_match" && matchResult.bestMatch) {
-        return await joinExistingMarket(
-          userId,
-          matchResult.bestMatch.marketId,
-          initialStake,
-          title,
-          description,
-          url,
-          sourceDomain,
-          embedding,
-          entities,
-          classification,
-          reply,
-          matchResult.bestMatch.compositeScore,
-          "exact_match"
-        );
-      }
-
-      // For likely matches, return the suggestion for user confirmation
-      if (matchResult.decision === "likely_match" && matchResult.bestMatch) {
         return reply.status(300).send({
-          message: "A similar market exists. Would you like to join it?",
+          message: "This story matches an existing one. Would you like to discover it?",
           matchResult: {
             decision: matchResult.decision,
             confidence: Math.round(matchResult.confidence * 100),
             reasoning: matchResult.reasoning,
             bestMatch: {
-              marketId: matchResult.bestMatch.marketId,
               storyId: matchResult.bestMatch.storyId,
               title: matchResult.bestMatch.title,
               description: matchResult.bestMatch.description,
-              totalPool: matchResult.bestMatch.totalPool,
-              participantCount: matchResult.bestMatch.participantCount,
+              discovererCount: matchResult.bestMatch.participantCount,
             },
           },
           actions: {
-            joinMarket: {
+            discover: {
               method: "POST",
               path: "/stories",
-              body: { ...result.data, joinMarketId: matchResult.bestMatch.marketId },
+              body: { ...result.data, discoverStoryId: matchResult.bestMatch.storyId },
             },
             createNew: {
               method: "POST",
               path: "/stories",
-              body: { ...result.data, forceNewMarket: true },
+              body: { ...result.data, forceNew: true },
+            },
+          },
+        });
+      }
+
+      // For likely matches, return the suggestion for user confirmation
+      if (matchResult.decision === "likely_match" && matchResult.bestMatch) {
+        return reply.status(300).send({
+          message: "A similar story exists. Would you like to discover it instead?",
+          matchResult: {
+            decision: matchResult.decision,
+            confidence: Math.round(matchResult.confidence * 100),
+            reasoning: matchResult.reasoning,
+            bestMatch: {
+              storyId: matchResult.bestMatch.storyId,
+              title: matchResult.bestMatch.title,
+              description: matchResult.bestMatch.description,
+              discovererCount: matchResult.bestMatch.participantCount,
+            },
+          },
+          actions: {
+            discover: {
+              method: "POST",
+              path: "/stories",
+              body: { ...result.data, discoverStoryId: matchResult.bestMatch.storyId },
+            },
+            createNew: {
+              method: "POST",
+              path: "/stories",
+              body: { ...result.data, forceNew: true },
             },
           },
         });
       }
     }
 
-    // Create new story and market
-    const story = await prisma.$transaction(async (tx) => {
+    // Create new story
+    const story = await prisma.$transaction(async (tx: TransactionClient) => {
       // Create or find canonical event
       let canonicalEventId: string | null = null;
 
@@ -325,7 +385,7 @@ export async function storiesRoutes(fastify: FastifyInstance) {
         canonicalEventId = canonicalEvent.id;
       }
 
-      // Create story with entities and match metadata
+      // Create story with entities
       const newStory = await tx.story.create({
         data: {
           title,
@@ -345,251 +405,108 @@ export async function storiesRoutes(fastify: FastifyInstance) {
           entitiesEvents: JSON.stringify(entities.events),
           entitiesTopics: JSON.stringify(entities.topics),
           entitiesExtractedAt: new Date(),
-          // Match metadata
           matchDecision: "create_new",
         },
       });
 
-      // Create market
-      const market = await tx.market.create({
+      // Create submission for the original discoverer
+      await tx.submission.create({
         data: {
+          userId,
           storyId: newStory.id,
-          totalPool: initialStake,
-          participantCount: 1,
-          status: "open",
+          isOriginal: true,
         },
       });
 
-      // Create position
-      await tx.position.create({
-        data: {
-          userId,
-          marketId: market.id,
-          stakeAmount: initialStake,
-          entryPoolSize: initialStake,
-          status: "active",
-        },
-      });
-
-      // Deduct user balance
-      await tx.user.update({
-        where: { id: userId },
-        data: { balance: { decrement: initialStake } },
-      });
-
-      // Record transaction
-      await tx.transaction.create({
-        data: {
-          userId,
-          type: "stake",
-          amount: -initialStake,
-          referenceId: market.id,
-        },
-      });
-
-      return { ...newStory, market };
+      return newStory;
     });
 
     // Invalidate cache
-    await deleteCache("stories:1:10");
-
-    return story;
-  });
-}
-
-/**
- * Helper function to join an existing market with a new stake.
- * This is called when a submission is matched to an existing market.
- */
-async function joinExistingMarket(
-  userId: string,
-  marketId: string,
-  stakeAmount: number,
-  title: string,
-  description: string,
-  url: string | undefined,
-  sourceDomain: string,
-  embedding: number[] | null,
-  entities: { people: string[]; organizations: string[]; locations: string[]; events: string[]; dates: string[]; topics: string[] },
-  classification: { category: string; flags: string[]; approved: boolean },
-  reply: any,
-  matchConfidence?: number,
-  matchDecision?: string
-) {
-  // Validate the market exists and is open
-  const market = await prisma.market.findUnique({
-    where: { id: marketId },
-    include: { story: true },
-  });
-
-  if (!market) {
-    return reply.status(404).send({ message: "Market not found" });
-  }
-
-  if (market.status !== "open") {
-    return reply.status(400).send({ message: "Market is no longer accepting stakes" });
-  }
-
-  // Check if user already has a position in this market
-  const existingPosition = await prisma.position.findFirst({
-    where: { userId, marketId },
-  });
-
-  const result = await prisma.$transaction(async (tx) => {
-    // Record the submission as a story linked to the existing market's canonical event
-    const submissionStory = await tx.story.create({
-      data: {
-        title,
-        url,
-        description,
-        sourceDomain,
-        submitterId: userId,
-        canonicalEventId: market.story.canonicalEventId,
-        status: "active", // Matched stories are auto-approved
-        aiClassification: classification.category,
-        safetyFlags: JSON.stringify(classification.flags),
-        embedding: embedding ? JSON.stringify(embedding) : null,
-        entitiesPeople: JSON.stringify(entities.people),
-        entitiesOrgs: JSON.stringify(entities.organizations),
-        entitiesLocations: JSON.stringify(entities.locations),
-        entitiesEvents: JSON.stringify(entities.events),
-        entitiesTopics: JSON.stringify(entities.topics),
-        entitiesExtractedAt: new Date(),
-        matchedToMarketId: marketId,
-        matchConfidence: matchConfidence,
-        matchDecision: matchDecision || "user_confirmed",
-      },
-    });
-
-    // Update canonical event with new entities (merge)
-    if (market.story.canonicalEventId) {
-      const canonicalEvent = await tx.canonicalEvent.findUnique({
-        where: { id: market.story.canonicalEventId },
-      });
-
-      if (canonicalEvent) {
-        const mergedPeople = mergeEntityArrays(
-          canonicalEvent.entitiesPeople,
-          entities.people
-        );
-        const mergedOrgs = mergeEntityArrays(
-          canonicalEvent.entitiesOrgs,
-          entities.organizations
-        );
-        const mergedLocations = mergeEntityArrays(
-          canonicalEvent.entitiesLocations,
-          entities.locations
-        );
-        const mergedEvents = mergeEntityArrays(
-          canonicalEvent.entitiesEvents,
-          entities.events
-        );
-        const mergedTopics = mergeEntityArrays(
-          canonicalEvent.entitiesTopics,
-          entities.topics
-        );
-        const mergedDomains = mergeEntityArrays(
-          canonicalEvent.sourceDomains,
-          [sourceDomain]
-        );
-
-        await tx.canonicalEvent.update({
-          where: { id: market.story.canonicalEventId },
-          data: {
-            entitiesPeople: JSON.stringify(mergedPeople),
-            entitiesOrgs: JSON.stringify(mergedOrgs),
-            entitiesLocations: JSON.stringify(mergedLocations),
-            entitiesEvents: JSON.stringify(mergedEvents),
-            entitiesTopics: JSON.stringify(mergedTopics),
-            sourceDomains: JSON.stringify(mergedDomains),
-            storyCount: { increment: 1 },
-          },
-        });
-      }
-    }
-
-    // Get current pool size before adding stake
-    const currentPoolSize = market.totalPool;
-
-    // Update or create position
-    if (existingPosition) {
-      // Add to existing position (user adding more stake)
-      await tx.position.update({
-        where: { id: existingPosition.id },
-        data: {
-          stakeAmount: { increment: stakeAmount },
-          // Note: entryPoolSize stays the same (their original entry point)
-        },
-      });
-    } else {
-      // Create new position
-      await tx.position.create({
-        data: {
-          userId,
-          marketId,
-          stakeAmount,
-          entryPoolSize: currentPoolSize + stakeAmount, // Entry at current pool + their stake
-          status: "active",
-        },
-      });
-    }
-
-    // Update market
-    await tx.market.update({
-      where: { id: marketId },
-      data: {
-        totalPool: { increment: stakeAmount },
-        participantCount: existingPosition ? undefined : { increment: 1 },
-      },
-    });
-
-    // Deduct user balance
-    await tx.user.update({
-      where: { id: userId },
-      data: { balance: { decrement: stakeAmount } },
-    });
-
-    // Record transaction
-    await tx.transaction.create({
-      data: {
-        userId,
-        type: "stake",
-        amount: -stakeAmount,
-        referenceId: marketId,
-      },
-    });
-
-    // Fetch updated market
-    const updatedMarket = await tx.market.findUnique({
-      where: { id: marketId },
-      include: { story: true },
-    });
+    await deleteCache("stories:*");
 
     return {
-      action: "joined_existing_market",
-      submission: submissionStory,
-      market: updatedMarket,
-      matchInfo: {
-        confidence: matchConfidence ? Math.round(matchConfidence * 100) : null,
-        decision: matchDecision,
-      },
+      ...story,
+      message: "Story submitted! You are the first discoverer.",
+      isOriginalDiscoverer: true,
     };
   });
 
-  // Invalidate cache
-  await deleteCache("stories:1:10");
+  // Discover an existing story (add yourself as a discoverer)
+  fastify.post("/:id/discover", { preHandler: [(fastify as any).authenticate] }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const userId = (request as any).user.userId;
 
-  return result;
+    return await discoverExistingStory(userId, id, reply);
+  });
 }
 
 /**
- * Merge entity arrays, deduplicating and preserving order.
+ * Helper function to add a discovery to an existing story
  */
-function mergeEntityArrays(
-  existingJson: string | null,
-  newEntities: string[]
-): string[] {
-  const existing: string[] = existingJson ? JSON.parse(existingJson) : [];
-  const merged = new Set([...existing, ...newEntities.map((e) => e.toLowerCase())]);
-  return [...merged];
+async function discoverExistingStory(
+  userId: string,
+  storyId: string,
+  reply: any
+) {
+  const story = await prisma.story.findUnique({
+    where: { id: storyId },
+    select: {
+      id: true,
+      title: true,
+      status: true,
+      _count: { select: { submissions: true } },
+    },
+  });
+
+  if (!story) {
+    return reply.status(404).send({ message: "Story not found" });
+  }
+
+  if (story.status !== "active" && story.status !== "pending") {
+    return reply.status(400).send({ message: "Story is no longer accepting discoveries" });
+  }
+
+  // Check if user already discovered this story
+  const existingSubmission = await prisma.submission.findFirst({
+    where: { userId, storyId },
+  });
+
+  if (existingSubmission) {
+    return reply.status(409).send({ message: "You have already discovered this story" });
+  }
+
+  // Check if this is the first submission (original discoverer)
+  const isOriginal = story._count.submissions === 0;
+
+  // Create submission
+  const submission = await prisma.submission.create({
+    data: {
+      userId,
+      storyId,
+      isOriginal,
+    },
+    include: {
+      story: {
+        select: {
+          id: true,
+          title: true,
+          sourceDomain: true,
+        },
+      },
+    },
+  });
+
+  // Invalidate cache
+  await deleteCache("stories:*");
+
+  return {
+    id: submission.id,
+    storyId: submission.storyId,
+    submittedAt: submission.submittedAt,
+    isOriginal: submission.isOriginal,
+    message: isOriginal
+      ? "You are the first to discover this story!"
+      : "Discovery recorded! You'll earn kudos when the story peaks.",
+    story: submission.story,
+  };
 }

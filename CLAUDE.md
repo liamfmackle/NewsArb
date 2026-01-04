@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-NewsArb is a prediction market platform for news virality. Users stake on breaking news stories they believe will go viral; early backers earn proportional returns as later participants enter the market pool.
+NewsArb is a reputation-based news discovery platform. Users discover breaking news stories they believe will go viral; early discoverers earn Kudos (reputation points) when stories peak in virality.
+
+**Key concept:** This is NOT a betting/gambling platform. Kudos are non-monetary reputation points that cannot be exchanged for cash.
 
 ## Commands
 
@@ -41,64 +43,61 @@ pnpm lint             # Lint all packages
 - `packages/shared` - Shared TypeScript types
 
 ### Key Data Flow
-1. User submits story with initial stake → AI classifies → Market created
-2. Other users stake on market → Pool grows → Earlier backers gain weight advantage
-3. Market settles → Payouts distributed proportionally (weight = stake/entryPoolSize)
+1. User submits/discovers story → AI classifies → Story created
+2. Other users discover same story → Discoverer count grows
+3. Story virality peaks (detected by decay) → Kudos distributed to all discoverers
+4. Earlier discoverers earn more Kudos (timing bonus)
 
 ### Database Schema (PostgreSQL)
-- `User` - accounts, balances, KYC status
-- `Story` - submitted news with AI classification
-- `Market` - trading pool for each story
-- `Position` - user stakes with entry timing
-- `Transaction` - ledger of all movements
+- `User` - accounts with Kudos stats (totalKudos, weeklyKudos, ranks)
+- `Story` - submitted news with AI classification and virality tracking
+- `Submission` - tracks who discovered stories and when
+- `KudosHistory` - ledger of all Kudos earnings
+- `ViralitySnapshot` - time-series virality data
+- `CanonicalEvent` - clusters related stories
 
-### Payout Logic
+### Kudos Formula
 ```
-weight = stakeAmount / poolSizeAtEntry
-payout = (weight / totalWeight) * (pool - 5% fee)
+baseKudos = 100 (for participating)
+earlyBonus = max(0, 100 - (submissionOrder - 1) * 10)  // Earlier = more
+timingBonus = max(0, 50 - hoursSinceFirst * 5)          // Quick = more
+viralityBonus = floor(peakViralityScore / 10) * 5       // Viral = more
+multiplier = isFirstDiscoverer ? 2.0 : 1.0
+
+totalKudos = (base + early + timing + virality) * multiplier
 ```
-Earlier backers have smaller `poolSizeAtEntry` → higher weight → larger share.
 
 ## Key Files
 
 ### Frontend
 - `apps/web/app/layout.tsx` - Root layout with Navbar and Providers
 - `apps/web/app/stories/page.tsx` - Story feed
-- `apps/web/app/stories/[id]/page.tsx` - Market detail page
-- `apps/web/components/StakeModal.tsx` - Staking interface
+- `apps/web/app/stories/[id]/page.tsx` - Story detail page
+- `apps/web/app/portfolio/page.tsx` - User's discoveries and Kudos
+- `apps/web/app/leaderboards/page.tsx` - Weekly and all-time rankings
+- `apps/web/components/StoryCard.tsx` - Story card component
 - `apps/web/lib/api.ts` - API client with typed endpoints
 
 ### Backend
 - `apps/api/src/index.ts` - Fastify server setup
-- `apps/api/src/routes/stories.ts` - Story CRUD + market creation
-- `apps/api/src/routes/markets.ts` - Staking and settlement
+- `apps/api/src/routes/stories.ts` - Story CRUD + discovery
+- `apps/api/src/routes/users.ts` - User profile, submissions, Kudos history
+- `apps/api/src/routes/leaderboards.ts` - Leaderboard endpoints
+- `apps/api/src/services/kudos.ts` - Kudos calculation logic
+- `apps/api/src/services/virality.ts` - Virality tracking
+- `apps/api/src/jobs/kudosCalculator.ts` - Background job for Kudos distribution
 - `apps/api/src/ai/classifier.ts` - OpenAI integration for story classification
 - `apps/api/prisma/schema.prisma` - Database schema
 
 ### Authentication
 - NextAuth.js handles frontend sessions (credentials + Google OAuth)
 - API uses JWT tokens issued by the backend
-- Web3 wallet connection via wagmi + RainbowKit
-- Wallet can be linked to user account for optional wallet-based features
 
 Key auth files:
 - `apps/web/app/api/auth/[...nextauth]/route.ts` - NextAuth configuration
-- `apps/web/hooks/useAuth.ts` - Unified auth hook (session + wallet state)
-- `apps/web/components/WalletButton.tsx` - RainbowKit wallet connector
+- `apps/web/hooks/useAuth.ts` - Auth hook (session + user data)
 - `apps/web/components/UserMenu.tsx` - User dropdown with settings/logout
 - `apps/web/middleware.ts` - Protected route middleware
-- `apps/web/lib/wagmi.ts` - Wagmi/RainbowKit configuration
-
-### Payments (Stripe)
-- Stripe Checkout for wallet deposits in multiple currencies
-- Webhook handler for payment confirmation
-- Automatic currency conversion to USD for balance
-
-Key payment files:
-- `apps/api/src/routes/payments.ts` - Payment routes (checkout, webhook, deposits)
-- `apps/web/components/DepositModal.tsx` - Deposit modal with currency selection
-- `apps/web/app/deposit/success/page.tsx` - Post-payment success page
-- `apps/web/app/deposit/cancel/page.tsx` - Payment cancelled page
 
 ## Environment Variables
 
@@ -108,6 +107,14 @@ Copy `.env.example` to `.env` and configure:
 - `NEXTAUTH_SECRET` - Session encryption
 - `GOOGLE_CLIENT_ID/SECRET` - OAuth (optional)
 - `OPENAI_API_KEY` - AI classification (optional, defaults to auto-approve)
-- `STRIPE_SECRET_KEY` - Stripe secret key for payments
-- `STRIPE_WEBHOOK_SECRET` - Stripe webhook signing secret
-- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` - Stripe publishable key for frontend
+
+## Terminology
+
+| Term | Definition |
+|------|------------|
+| Kudos | Non-monetary reputation points |
+| Discovery | When a user identifies a story as newsworthy |
+| Discoverer | User who discovered a story |
+| First Discoverer | Original submitter of a story (2x multiplier) |
+| Virality Score | 0-100 measure of story spread |
+| Settled | Story whose virality has peaked; Kudos distributed |

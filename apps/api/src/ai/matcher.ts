@@ -41,12 +41,11 @@ export interface ExtractedEntities {
 
 export interface MatchCandidate {
   storyId: string;
-  marketId: string;
   title: string;
   description: string;
   category: string | null;
   canonicalEventId: string | null;
-  totalPool: number;
+  kudosPool: number;
   participantCount: number;
   createdAt: Date;
 
@@ -343,8 +342,8 @@ function calculateSourceScore(domain1: string, domain2: string): number {
 // ============================================================================
 
 /**
- * Find matching markets for a new submission.
- * This is the core matching algorithm that analyzes all active markets
+ * Find matching stories for a new submission.
+ * This is the core matching algorithm that analyzes all active stories
  * and returns scored candidates.
  */
 export async function findMatchingMarkets(
@@ -352,23 +351,23 @@ export async function findMatchingMarkets(
 ): Promise<MatchCandidate[]> {
   const now = new Date();
 
-  // Get active markets with their stories
-  const activeMarkets = await prisma.market.findMany({
+  // Get active stories
+  const activeStories = await prisma.story.findMany({
     where: {
-      status: "open",
+      status: { in: ["active", "pending"] },
     },
-    include: {
-      story: {
-        select: {
-          id: true,
-          title: true,
-          description: true,
-          embedding: true,
-          aiClassification: true,
-          canonicalEventId: true,
-          sourceDomain: true,
-          createdAt: true,
-        },
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      embedding: true,
+      aiClassification: true,
+      canonicalEventId: true,
+      sourceDomain: true,
+      createdAt: true,
+      kudosPool: true,
+      _count: {
+        select: { submissions: true },
       },
     },
     orderBy: {
@@ -389,10 +388,7 @@ export async function findMatchingMarkets(
 
   const candidates: MatchCandidate[] = [];
 
-  for (const market of activeMarkets) {
-    const story = market.story;
-    if (!story) continue;
-
+  for (const story of activeStories) {
     // Calculate semantic score
     let semanticScore = 0;
     if (submissionEmbedding && story.embedding) {
@@ -435,13 +431,12 @@ export async function findMatchingMarkets(
 
     candidates.push({
       storyId: story.id,
-      marketId: market.id,
       title: story.title,
       description: story.description,
       category: story.aiClassification,
       canonicalEventId: story.canonicalEventId,
-      totalPool: market.totalPool,
-      participantCount: market.participantCount,
+      kudosPool: story.kudosPool,
+      participantCount: story._count.submissions,
       createdAt: story.createdAt,
       semanticScore,
       entityScore,
@@ -552,14 +547,13 @@ function generateMatchReasoning(
   switch (matchType) {
     case "exact":
       return `This submission appears to be about the same event: ${reasonList}. ` +
-        `The existing market has ${candidate.participantCount} participant(s) ` +
-        `and a pool of $${candidate.totalPool.toFixed(2)}.`;
+        `The existing story has ${candidate.participantCount} discoverer(s).`;
     case "likely":
       return `This submission is likely about the same event (${reasonList}). ` +
-        `Consider joining the existing market with ${candidate.participantCount} participant(s).`;
+        `Consider discovering the existing story with ${candidate.participantCount} discoverer(s).`;
     case "related":
       return `This submission is related but may be distinct (${reasonList}). ` +
-        `A separate market is recommended.`;
+        `A separate story is recommended.`;
     default:
       return reasonList;
   }

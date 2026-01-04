@@ -12,6 +12,15 @@ export function formatCurrency(amount: number): string {
   }).format(amount);
 }
 
+export function formatKudos(amount: number): string {
+  return new Intl.NumberFormat("en-US").format(amount);
+}
+
+export function formatRank(rank: number | null): string {
+  if (rank === null) return "-";
+  return `#${rank}`;
+}
+
 export function formatRelativeTime(date: Date): string {
   const now = new Date();
   const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);

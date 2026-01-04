@@ -1,168 +1,224 @@
 import { FastifyInstance } from "fastify";
-import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
-import { deleteCache } from "../lib/redis.js";
-import { settleMarket } from "../jobs/settlementChecker.js";
+import { Prisma } from "@prisma/client";
+import { manualKudosDistribution } from "../jobs/kudosCalculator.js";
 
-const stakeSchema = z.object({
-  amount: z.number().min(0.01),
-});
+type SubmissionData = {
+  id: string;
+  user: { id: string; displayName: string | null };
+  submittedAt: Date;
+  kudosEarned: number;
+  isOriginal: boolean;
+};
+
+type ViralitySnapshotData = {
+  timestamp: Date;
+  viralityScore: number;
+  trend: string | null;
+};
+
+type SubmissionWithUser = {
+  id: string;
+  user: { id: string; displayName: string | null; totalKudos: number; allTimeRank: number | null };
+  submittedAt: Date;
+  kudosEarned: number;
+  isOriginal: boolean;
+};
 
 export async function marketsRoutes(fastify: FastifyInstance) {
-  // Get market by ID
+  // Get story cluster by ID (formerly "market")
+  // This route is kept for backwards compatibility - returns story with discoverers
   fastify.get("/:id", async (request, reply) => {
     const { id } = request.params as { id: string };
 
-    const market = await prisma.market.findUnique({
+    // First check if it's a story ID
+    const story = await prisma.story.findUnique({
       where: { id },
       include: {
-        story: true,
-        positions: {
+        submitter: {
+          select: { id: true, displayName: true },
+        },
+        submissions: {
           include: {
             user: {
               select: { id: true, displayName: true },
             },
           },
-          orderBy: { entryTime: "asc" },
+          orderBy: { submittedAt: "asc" },
+        },
+        canonicalEvent: true,
+        viralitySnapshots: {
+          orderBy: { timestamp: "desc" },
+          take: 10,
         },
       },
     });
 
-    if (!market) {
-      return reply.status(404).send({ message: "Market not found" });
+    if (!story) {
+      return reply.status(404).send({ message: "Story not found" });
     }
 
-    return market;
+    // Return story data in a format similar to old market response
+    return {
+      id: story.id,
+      storyId: story.id,
+      status: story.status,
+      discovererCount: story.submissions.length,
+      kudosPool: story.kudosPool,
+      kudosDistributed: story.kudosDistributed,
+      story: {
+        id: story.id,
+        title: story.title,
+        url: story.url,
+        description: story.description,
+        sourceDomain: story.sourceDomain,
+        aiClassification: story.aiClassification,
+        currentViralityScore: story.currentViralityScore,
+        peakViralityScore: story.peakViralityScore,
+        viralityTrend: story.viralityTrend,
+        createdAt: story.createdAt,
+        submitter: story.submitter,
+      },
+      discoverers: story.submissions.map((sub: SubmissionData) => ({
+        id: sub.id,
+        user: sub.user,
+        submittedAt: sub.submittedAt,
+        kudosEarned: sub.kudosEarned,
+        isOriginal: sub.isOriginal,
+      })),
+      canonicalEvent: story.canonicalEvent,
+      viralityHistory: story.viralitySnapshots.map((snap: ViralitySnapshotData) => ({
+        timestamp: snap.timestamp,
+        score: snap.viralityScore,
+        trend: snap.trend,
+      })),
+    };
   });
 
-  // Stake on market (authenticated)
-  fastify.post("/:id/stake", { preHandler: [(fastify as any).authenticate] }, async (request, reply) => {
+  // Submit discovery for a story (replaces stake)
+  fastify.post("/:id/discover", { preHandler: [(fastify as any).authenticate] }, async (request, reply) => {
     const { id } = request.params as { id: string };
-    const result = stakeSchema.safeParse(request.body);
-
-    if (!result.success) {
-      return reply.status(400).send({ message: "Invalid input" });
-    }
-
-    const { amount } = result.data;
     const userId = (request as any).user.userId;
 
-    // Get market
-    const market = await prisma.market.findUnique({
+    // Get story
+    const story = await prisma.story.findUnique({
       where: { id },
-      include: { story: true },
+      select: { id: true, status: true },
     });
 
-    if (!market) {
-      return reply.status(404).send({ message: "Market not found" });
+    if (!story) {
+      return reply.status(404).send({ message: "Story not found" });
     }
 
-    if (market.status !== "open") {
-      return reply.status(400).send({ message: "Market is not open for staking" });
+    if (story.status !== "active" && story.status !== "pending") {
+      return reply.status(400).send({ message: "Story is no longer accepting discoveries" });
     }
 
-    // Check user balance
-    const user = await prisma.user.findUnique({ where: { id: userId } });
-    if (!user || user.balance < amount) {
-      return reply.status(400).send({ message: "Insufficient balance" });
+    // Check if user already discovered this story
+    const existingSubmission = await prisma.submission.findFirst({
+      where: { userId, storyId: id },
+    });
+
+    if (existingSubmission) {
+      return reply.status(409).send({ message: "You have already discovered this story" });
     }
 
-    // Create position in transaction
-    const position = await prisma.$transaction(async (tx) => {
-      // Check for existing position
-      const existingPosition = await tx.position.findFirst({
-        where: { userId, marketId: id, status: "active" },
-      });
+    // Check if this is the first submission (original discoverer)
+    const existingCount = await prisma.submission.count({
+      where: { storyId: id },
+    });
 
-      let pos;
-      const currentPoolSize = market.totalPool;
+    const isOriginal = existingCount === 0;
 
-      if (existingPosition) {
-        // Add to existing position
-        pos = await tx.position.update({
-          where: { id: existingPosition.id },
-          data: {
-            stakeAmount: { increment: amount },
-            // Keep original entry pool size for payout calculation
+    // Create submission
+    const submission = await prisma.submission.create({
+      data: {
+        userId,
+        storyId: id,
+        isOriginal,
+      },
+      include: {
+        story: {
+          select: {
+            id: true,
+            title: true,
+            sourceDomain: true,
           },
-        });
-      } else {
-        // Create new position
-        pos = await tx.position.create({
-          data: {
-            userId,
-            marketId: id,
-            stakeAmount: amount,
-            entryPoolSize: currentPoolSize,
-            status: "active",
-          },
-        });
-
-        // Increment participant count
-        await tx.market.update({
-          where: { id },
-          data: { participantCount: { increment: 1 } },
-        });
-      }
-
-      // Update market pool
-      await tx.market.update({
-        where: { id },
-        data: { totalPool: { increment: amount } },
-      });
-
-      // Deduct user balance
-      await tx.user.update({
-        where: { id: userId },
-        data: { balance: { decrement: amount } },
-      });
-
-      // Record transaction
-      await tx.transaction.create({
-        data: {
-          userId,
-          type: "stake",
-          amount: -amount,
-          referenceId: id,
         },
-      });
-
-      return pos;
+      },
     });
 
-    // Invalidate cache
-    await deleteCache("stories:1:10");
-
-    return position;
+    return {
+      id: submission.id,
+      storyId: submission.storyId,
+      submittedAt: submission.submittedAt,
+      isOriginal: submission.isOriginal,
+      message: isOriginal
+        ? "You are the first to discover this story!"
+        : "Discovery recorded. You will earn kudos when the story peaks.",
+      story: submission.story,
+    };
   });
 
-  // Settle market (admin only)
-  fastify.post("/:id/settle", { preHandler: [(fastify as any).authenticateAdmin] }, async (request, reply) => {
+  // Manually distribute kudos (admin only)
+  fastify.post("/:id/distribute-kudos", { preHandler: [(fastify as any).authenticateAdmin] }, async (request, reply) => {
     const { id } = request.params as { id: string };
 
-    const market = await prisma.market.findUnique({
+    const story = await prisma.story.findUnique({
       where: { id },
+      select: { id: true },
     });
 
-    if (!market) {
-      return reply.status(404).send({ message: "Market not found" });
+    if (!story) {
+      return reply.status(404).send({ message: "Story not found" });
     }
 
-    if (market.status !== "open") {
-      return reply.status(400).send({ message: "Market already settled" });
-    }
-
-    // Use the centralized settlement function
-    const result = await settleMarket(id, "admin_manual");
+    const result = await manualKudosDistribution(id);
 
     if (!result.success) {
-      return reply.status(500).send({ message: "Failed to settle market" });
+      return reply.status(400).send({ message: result.message });
     }
 
     return {
-      message: "Market settled",
-      distributablePool: result.distributablePool,
-      platformFee: result.platformFee,
+      message: result.message,
+      totalKudos: result.totalKudos,
     };
+  });
+
+  // Get discoverers for a story
+  fastify.get("/:id/discoverers", async (request, reply) => {
+    const { id } = request.params as { id: string };
+
+    const story = await prisma.story.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+
+    if (!story) {
+      return reply.status(404).send({ message: "Story not found" });
+    }
+
+    const submissions = await prisma.submission.findMany({
+      where: { storyId: id },
+      include: {
+        user: {
+          select: {
+            id: true,
+            displayName: true,
+            totalKudos: true,
+            allTimeRank: true,
+          },
+        },
+      },
+      orderBy: { submittedAt: "asc" },
+    });
+
+    return submissions.map((sub: SubmissionWithUser, index: number) => ({
+      rank: index + 1,
+      user: sub.user,
+      submittedAt: sub.submittedAt,
+      kudosEarned: sub.kudosEarned,
+      isOriginal: sub.isOriginal,
+    }));
   });
 }

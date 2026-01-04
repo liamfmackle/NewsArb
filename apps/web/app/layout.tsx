@@ -7,8 +7,8 @@ import { ClientProviders } from "@/components/ClientProviders";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "NewsArb - Back Breaking News",
-  description: "Stake on news stories you believe will go viral",
+  title: "NewsArb - Discover Breaking News First",
+  description: "Discover breaking news stories before they go viral and earn Kudos reputation points",
 };
 
 export default function RootLayout({

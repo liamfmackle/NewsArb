@@ -3,38 +3,29 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { MarketStats } from "@/components/MarketStats";
-import { StakeModal } from "@/components/StakeModal";
+import { StoryStats } from "@/components/StoryStats";
 import { ViralityChart } from "@/components/ViralityChart";
 import { ViralityBadge } from "@/components/ViralityBadge";
-import { storiesApi, marketsApi, usersApi } from "@/lib/api";
-import { formatRelativeTime } from "@/lib/utils";
+import { storiesApi, marketsApi } from "@/lib/api";
+import { formatRelativeTime, formatKudos } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Star, Users, Crown, CheckCircle } from "lucide-react";
 
 export default function StoryPage() {
   const params = useParams();
   const storyId = params.id as string;
   const { data: session } = useSession();
   const queryClient = useQueryClient();
-  const [showStakeModal, setShowStakeModal] = useState(false);
 
   const { data: story, isLoading: storyLoading } = useQuery({
     queryKey: ["story", storyId],
     queryFn: () => storiesApi.get(storyId),
   });
 
-  const { data: user } = useQuery({
-    queryKey: ["user"],
-    queryFn: () => usersApi.me(session?.accessToken as string),
-    enabled: !!session?.accessToken,
-  });
-
-  const stakeMutation = useMutation({
-    mutationFn: (amount: number) =>
-      marketsApi.stake(story!.market!.id, amount, session?.accessToken as string),
+  const discoverMutation = useMutation({
+    mutationFn: () => storiesApi.discover(storyId, session?.accessToken as string),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["story", storyId] });
       queryClient.invalidateQueries({ queryKey: ["user"] });
@@ -61,7 +52,10 @@ export default function StoryPage() {
     );
   }
 
-  const isSettled = story.market?.status === "settled";
+  const isSettled = story.kudosDistributed;
+  const hasDiscovered = story.discoverers?.some(
+    (d) => d.user.id === session?.user?.id
+  );
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -89,15 +83,19 @@ export default function StoryPage() {
           <span>{story.sourceDomain}</span>
           <span className="slash-divider" />
           <span>{formatRelativeTime(new Date(story.createdAt))}</span>
-          <span className="slash-divider" />
-          <a
-            href={story.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-gold hover-underline"
-          >
-            source
-          </a>
+          {story.url && (
+            <>
+              <span className="slash-divider" />
+              <a
+                href={story.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-gold hover-underline"
+              >
+                source
+              </a>
+            </>
+          )}
         </div>
 
         <p className="text-muted-custom mb-4">{story.description}</p>
@@ -112,67 +110,121 @@ export default function StoryPage() {
         )}
       </div>
 
-      {/* Two column layout for market and virality */}
-      {story.market && (
-        <div className="grid md:grid-cols-2 gap-6 mb-6">
-          {/* Market Stats */}
-          <div>
-            <h2 className="text-lg font-mono mb-4">
-              <span className="text-gold">/</span> market
-            </h2>
-            <MarketStats market={story.market} />
+      {/* Story Stats */}
+      <div className="mb-6">
+        <h2 className="text-lg font-mono mb-4">
+          <span className="text-gold">/</span> stats
+        </h2>
+        <StoryStats
+          story={story}
+          discovererCount={story.discovererCount}
+          kudosPool={story.kudosPool}
+          status={story.status}
+        />
+      </div>
 
-            {/* Settlement info if settled */}
-            {isSettled && story.market.settlementReason && (
-              <div className="mt-4 p-3 border border-muted bg-surface-secondary font-mono text-sm">
-                <span className="data-label">settled</span>
-                <p className="text-muted-custom mt-1">{story.market.settlementReason}</p>
+      {/* Virality Chart */}
+      <div className="mb-6">
+        <h2 className="text-lg font-mono mb-4">
+          <span className="text-gold">/</span> virality
+        </h2>
+        <ViralityChart storyId={storyId} />
+      </div>
+
+      {/* Discoverers List */}
+      {story.discoverers && story.discoverers.length > 0 && (
+        <div className="mb-6">
+          <h2 className="text-lg font-mono mb-4">
+            <span className="text-gold">/</span> discoverers
+          </h2>
+          <div className="border border-border rounded-lg overflow-hidden">
+            {story.discoverers.map((discoverer, index) => (
+              <div
+                key={discoverer.id}
+                className={`flex items-center justify-between p-4 ${
+                  index !== story.discoverers.length - 1 ? "border-b border-border" : ""
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`w-8 h-8 flex items-center justify-center rounded-full ${
+                    discoverer.isOriginal
+                      ? "bg-[var(--gold)] text-black"
+                      : "bg-[var(--surface-secondary)] text-[var(--muted)]"
+                  }`}>
+                    {discoverer.isOriginal ? (
+                      <Crown className="h-4 w-4" />
+                    ) : (
+                      <span className="text-sm font-mono">{index + 1}</span>
+                    )}
+                  </div>
+                  <div>
+                    <p className="font-medium flex items-center gap-2">
+                      {discoverer.user.displayName || "Anonymous"}
+                      {discoverer.isOriginal && (
+                        <span className="text-xs px-2 py-0.5 bg-[var(--gold)]/10 text-[var(--gold)] rounded">
+                          first
+                        </span>
+                      )}
+                    </p>
+                    <p className="text-xs text-[var(--muted)]">
+                      {formatRelativeTime(new Date(discoverer.submittedAt))}
+                    </p>
+                  </div>
+                </div>
+                {discoverer.kudosEarned > 0 && (
+                  <div className="flex items-center gap-1 text-[var(--gold)] font-mono">
+                    <Star className="h-4 w-4" />
+                    +{formatKudos(discoverer.kudosEarned)}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-
-          {/* Virality Chart */}
-          <div>
-            <h2 className="text-lg font-mono mb-4">
-              <span className="text-gold">/</span> virality
-            </h2>
-            <ViralityChart storyId={storyId} />
+            ))}
           </div>
         </div>
       )}
 
-      {/* Stake CTA */}
-      {story.market && !isSettled && (
+      {/* Discover CTA */}
+      {!isSettled && (
         <div className="flex justify-center py-6">
           {session ? (
-            <Button variant="gold" size="lg" onClick={() => setShowStakeModal(true)}>
-              stake on this story
-            </Button>
+            hasDiscovered ? (
+              <div className="flex items-center gap-2 text-[var(--muted)]">
+                <CheckCircle className="h-5 w-5 text-green-500" />
+                <span>you discovered this story</span>
+              </div>
+            ) : (
+              <Button
+                variant="gold"
+                size="lg"
+                onClick={() => discoverMutation.mutate()}
+                disabled={discoverMutation.isPending}
+              >
+                {discoverMutation.isPending ? "discovering..." : "i discovered this"}
+              </Button>
+            )
           ) : (
             <Link href="/login">
-              <Button variant="gold" size="lg">sign in to stake</Button>
+              <Button variant="gold" size="lg">sign in to discover</Button>
             </Link>
           )}
         </div>
       )}
 
       {isSettled && (
-        <div className="text-center py-6">
-          <p className="text-muted-custom font-mono">
-            this market has been settled
+        <div className="text-center py-6 border border-[var(--gold)]/20 bg-[var(--gold)]/5 rounded-lg">
+          <p className="text-[var(--gold)] font-mono flex items-center justify-center gap-2">
+            <Star className="h-5 w-5" />
+            kudos have been distributed for this story
           </p>
         </div>
       )}
 
-      {story.market && user && (
-        <StakeModal
-          isOpen={showStakeModal}
-          onClose={() => setShowStakeModal(false)}
-          onStake={stakeMutation.mutateAsync}
-          storyTitle={story.title}
-          currentPool={story.market.totalPool}
-          userBalance={user.balance}
-        />
+      {discoverMutation.isError && (
+        <div className="text-center py-4 text-red-500">
+          {discoverMutation.error instanceof Error
+            ? discoverMutation.error.message
+            : "failed to record discovery"}
+        </div>
       )}
     </div>
   );

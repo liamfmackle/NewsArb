@@ -241,9 +241,7 @@ export async function updateAllActiveVirality(): Promise<{
   const activeStories = await prisma.story.findMany({
     where: {
       status: "active",
-      market: {
-        status: "open",
-      },
+      kudosDistributed: false,
     },
     select: { id: true },
   });

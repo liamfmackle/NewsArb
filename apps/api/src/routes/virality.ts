@@ -117,12 +117,10 @@ export async function viralityRoutes(fastify: FastifyInstance) {
         currentViralityScore: true,
         peakViralityScore: true,
         viralityTrend: true,
-        market: {
-          select: {
-            totalPool: true,
-            participantCount: true,
-            status: true,
-          },
+        kudosPool: true,
+        status: true,
+        _count: {
+          select: { submissions: true },
         },
       },
     });

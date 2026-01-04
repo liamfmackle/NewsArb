@@ -1,31 +1,26 @@
 import { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
+import { getUserKudosHistory, getUserKudosStats } from "../services/kudos.js";
 
-// Local types for position data
+// Local types for submission data
 interface StoryData {
   id: string;
   title: string;
   sourceDomain: string;
-}
-
-interface MarketData {
-  id: string;
-  totalPool: number;
+  currentViralityScore: number | null;
+  peakViralityScore: number | null;
   status: string;
-  story: StoryData | null;
 }
 
-interface PositionWithMarket {
+interface SubmissionWithStory {
   id: string;
   userId: string;
-  marketId: string;
-  stakeAmount: number;
-  entryPoolSize: number;
-  entryTime: Date;
-  payoutAmount: number | null;
-  status: string;
-  market: MarketData | null;
+  storyId: string;
+  submittedAt: Date;
+  kudosEarned: number;
+  isOriginal: boolean;
+  story: StoryData | null;
 }
 
 const updateProfileSchema = z.object({
@@ -43,9 +38,10 @@ export async function usersRoutes(fastify: FastifyInstance) {
         id: true,
         email: true,
         displayName: true,
-        walletAddress: true,
-        balance: true,
-        kycStatus: true,
+        totalKudos: true,
+        weeklyKudos: true,
+        allTimeRank: true,
+        weeklyRank: true,
         createdAt: true,
       },
     });
@@ -73,101 +69,152 @@ export async function usersRoutes(fastify: FastifyInstance) {
         id: true,
         email: true,
         displayName: true,
-        walletAddress: true,
-        balance: true,
-        kycStatus: true,
+        totalKudos: true,
+        weeklyKudos: true,
+        allTimeRank: true,
+        weeklyRank: true,
       },
     });
 
     return user;
   });
 
-  // Get user's positions
-  fastify.get("/me/positions", { preHandler: [(fastify as any).authenticate] }, async (request) => {
+  // Get user's kudos stats
+  fastify.get("/me/kudos", { preHandler: [(fastify as any).authenticate] }, async (request, reply) => {
     const userId = (request as any).user.userId;
 
-    const positions = await prisma.position.findMany({
+    const stats = await getUserKudosStats(userId);
+
+    if (!stats) {
+      return reply.status(404).send({ message: "User not found" });
+    }
+
+    return stats;
+  });
+
+  // Get user's submissions (replaces positions)
+  fastify.get("/me/submissions", { preHandler: [(fastify as any).authenticate] }, async (request) => {
+    const userId = (request as any).user.userId;
+
+    const submissions = await prisma.submission.findMany({
       where: { userId },
       include: {
-        market: {
-          include: {
-            story: {
-              select: {
-                id: true,
-                title: true,
-                sourceDomain: true,
-              },
-            },
+        story: {
+          select: {
+            id: true,
+            title: true,
+            sourceDomain: true,
+            currentViralityScore: true,
+            peakViralityScore: true,
+            status: true,
           },
         },
       },
-      orderBy: { entryTime: "desc" },
+      orderBy: { submittedAt: "desc" },
     });
 
     // Flatten the response
-    return positions.map((pos: PositionWithMarket) => ({
-      id: pos.id,
-      userId: pos.userId,
-      marketId: pos.marketId,
-      stakeAmount: pos.stakeAmount,
-      entryPoolSize: pos.entryPoolSize,
-      entryTime: pos.entryTime,
-      payoutAmount: pos.payoutAmount,
-      status: pos.status,
-      market: pos.market
-        ? {
-            id: pos.market.id,
-            totalPool: pos.market.totalPool,
-            status: pos.market.status,
-          }
-        : null,
-      story: pos.market?.story || null,
+    return submissions.map((sub: SubmissionWithStory) => ({
+      id: sub.id,
+      userId: sub.userId,
+      storyId: sub.storyId,
+      submittedAt: sub.submittedAt,
+      kudosEarned: sub.kudosEarned,
+      isOriginal: sub.isOriginal,
+      story: sub.story,
     }));
   });
 
-  // Get user's transactions
-  fastify.get("/me/transactions", { preHandler: [(fastify as any).authenticate] }, async (request) => {
+  // Get user's kudos history (replaces transactions)
+  fastify.get("/me/kudos-history", { preHandler: [(fastify as any).authenticate] }, async (request) => {
     const userId = (request as any).user.userId;
+    const { limit } = request.query as { limit?: string };
 
-    const transactions = await prisma.transaction.findMany({
-      where: { userId },
-      orderBy: { createdAt: "desc" },
-      take: 50,
-    });
+    const history = await getUserKudosHistory(userId, limit ? parseInt(limit, 10) : 20);
 
-    return transactions;
+    return history;
   });
 
-  // Link wallet address
-  fastify.post("/me/wallet", { preHandler: [(fastify as any).authenticate] }, async (request, reply) => {
-    const userId = (request as any).user.userId;
-    const { walletAddress } = request.body as { walletAddress: string };
+  // Get public user profile
+  fastify.get("/:id/profile", async (request, reply) => {
+    const { id } = request.params as { id: string };
 
-    if (!walletAddress || !/^0x[a-fA-F0-9]{40}$/.test(walletAddress)) {
-      return reply.status(400).send({ message: "Invalid wallet address" });
-    }
-
-    // Check if wallet already linked to another account
-    const existing = await prisma.user.findFirst({
-      where: { walletAddress, id: { not: userId } },
-    });
-
-    if (existing) {
-      return reply.status(409).send({ message: "Wallet already linked to another account" });
-    }
-
-    const user = await prisma.user.update({
-      where: { id: userId },
-      data: { walletAddress },
+    const user = await prisma.user.findUnique({
+      where: { id },
       select: {
         id: true,
-        email: true,
         displayName: true,
-        walletAddress: true,
-        balance: true,
+        totalKudos: true,
+        weeklyKudos: true,
+        allTimeRank: true,
+        weeklyRank: true,
+        createdAt: true,
+        _count: {
+          select: { submissions: true },
+        },
+        submissions: {
+          where: { isOriginal: true },
+          select: { id: true },
+        },
       },
     });
 
-    return user;
+    if (!user) {
+      return reply.status(404).send({ message: "User not found" });
+    }
+
+    return {
+      id: user.id,
+      displayName: user.displayName,
+      totalKudos: user.totalKudos,
+      weeklyKudos: user.weeklyKudos,
+      allTimeRank: user.allTimeRank,
+      weeklyRank: user.weeklyRank,
+      createdAt: user.createdAt,
+      totalDiscoveries: user._count.submissions,
+      originalDiscoveries: user.submissions.length,
+    };
+  });
+
+  // Get user's top discoveries
+  fastify.get("/:id/discoveries", async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const { limit } = request.query as { limit?: string };
+
+    const user = await prisma.user.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+
+    if (!user) {
+      return reply.status(404).send({ message: "User not found" });
+    }
+
+    const submissions = await prisma.submission.findMany({
+      where: { userId: id },
+      include: {
+        story: {
+          select: {
+            id: true,
+            title: true,
+            sourceDomain: true,
+            currentViralityScore: true,
+            peakViralityScore: true,
+            status: true,
+            createdAt: true,
+          },
+        },
+      },
+      orderBy: { kudosEarned: "desc" },
+      take: limit ? parseInt(limit, 10) : 10,
+    });
+
+    return submissions.map((sub: { id: string; submittedAt: Date; kudosEarned: number; isOriginal: boolean; story: StoryData | null }) => ({
+      id: sub.id,
+      submittedAt: sub.submittedAt,
+      kudosEarned: sub.kudosEarned,
+      isOriginal: sub.isOriginal,
+      story: sub.story,
+    }));
   });
 }

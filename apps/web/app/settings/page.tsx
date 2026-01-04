@@ -6,11 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { WalletButton } from "@/components/WalletButton";
-import { useAccount } from "wagmi";
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Check, Copy, ExternalLink, Shield, Wallet, User } from "lucide-react";
+import { User, Star, Trophy } from "lucide-react";
+import { formatKudos, formatRank } from "@/lib/utils";
 
 export default function SettingsPage() {
   return (
@@ -21,10 +20,8 @@ export default function SettingsPage() {
 }
 
 function SettingsContent() {
-  const { user, session, isWalletLinked, hasLinkedWallet, linkWallet, isLinkingWallet } = useAuth();
-  const { address, isConnected } = useAccount();
+  const { user, session } = useAuth();
   const queryClient = useQueryClient();
-  const [copied, setCopied] = useState(false);
   const [displayName, setDisplayName] = useState(user?.displayName || "");
 
   const updateProfileMutation = useMutation({
@@ -48,43 +45,22 @@ function SettingsContent() {
     },
   });
 
-  const handleLinkWallet = async () => {
-    if (!address) return;
-    try {
-      await linkWallet(address);
-    } catch (error) {
-      console.error("Failed to link wallet:", error);
-    }
-  };
-
-  const copyAddress = () => {
-    if (user?.walletAddress) {
-      navigator.clipboard.writeText(user.walletAddress);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
-  };
-
-  const shortenAddress = (addr: string) => {
-    return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
-  };
-
   return (
     <div className="max-w-2xl mx-auto">
-      <h1 className="text-3xl font-bold mb-8">Settings</h1>
+      <h1 className="text-3xl font-bold mb-8">settings</h1>
 
       {/* Profile Settings */}
       <Card className="mb-6">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <User className="h-5 w-5" />
-            Profile
+            profile
           </CardTitle>
-          <CardDescription>Manage your account information</CardDescription>
+          <CardDescription>manage your account information</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email">email</Label>
             <Input
               id="email"
               value={user?.email || ""}
@@ -92,155 +68,94 @@ function SettingsContent() {
               className="mt-1 bg-muted"
             />
             <p className="text-xs text-muted-foreground mt-1">
-              Email cannot be changed
+              email cannot be changed
             </p>
           </div>
 
           <div>
-            <Label htmlFor="displayName">Display Name</Label>
+            <Label htmlFor="displayName">display name</Label>
             <div className="flex gap-2 mt-1">
               <Input
                 id="displayName"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
-                placeholder="How others see you"
+                placeholder="how others see you"
               />
               <Button
                 onClick={() => updateProfileMutation.mutate({ displayName })}
                 disabled={updateProfileMutation.isPending || displayName === user?.displayName}
               >
-                {updateProfileMutation.isPending ? "Saving..." : "Save"}
+                {updateProfileMutation.isPending ? "saving..." : "save"}
               </Button>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Wallet Settings */}
+      {/* Kudos Stats */}
       <Card className="mb-6">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Wallet className="h-5 w-5" />
-            Wallet
+            <Star className="h-5 w-5 text-[var(--gold)]" />
+            kudos
           </CardTitle>
-          <CardDescription>
-            Connect and link your Web3 wallet for enhanced features
-          </CardDescription>
+          <CardDescription>your reputation on NewsArb</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Current connection status */}
-          <div className="flex items-center justify-between p-4 rounded-lg bg-muted">
-            <div>
-              <p className="font-medium">Wallet Connection</p>
-              <p className="text-sm text-muted-foreground">
-                {isConnected
-                  ? `Connected: ${shortenAddress(address!)}`
-                  : "Not connected"}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="p-4 rounded-lg bg-muted">
+              <p className="text-sm text-muted-foreground">total kudos</p>
+              <p className="text-2xl font-bold font-mono text-[var(--gold)]">
+                {formatKudos(user?.totalKudos || 0)}
               </p>
             </div>
-            <WalletButton />
+            <div className="p-4 rounded-lg bg-muted">
+              <p className="text-sm text-muted-foreground">this week</p>
+              <p className="text-2xl font-bold font-mono">
+                {formatKudos(user?.weeklyKudos || 0)}
+              </p>
+            </div>
           </div>
 
-          {/* Linked wallet info */}
-          {hasLinkedWallet && (
-            <div className="p-4 rounded-lg border">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium flex items-center gap-2">
-                    Linked Wallet
-                    <Check className="h-4 w-4 text-green-600" />
-                  </p>
-                  <p className="text-sm font-mono text-muted-foreground">
-                    {shortenAddress(user!.walletAddress!)}
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="ghost" size="icon" onClick={copyAddress}>
-                    {copied ? (
-                      <Check className="h-4 w-4 text-green-600" />
-                    ) : (
-                      <Copy className="h-4 w-4" />
-                    )}
-                  </Button>
-                  <a
-                    href={`https://etherscan.io/address/${user?.walletAddress}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <Button variant="ghost" size="icon">
-                      <ExternalLink className="h-4 w-4" />
-                    </Button>
-                  </a>
-                </div>
-              </div>
-
-              {isConnected && !isWalletLinked && (
-                <p className="text-sm text-yellow-600 mt-2">
-                  Connected wallet differs from linked wallet
+          <div className="flex items-center justify-between p-4 rounded-lg border">
+            <div className="flex items-center gap-2">
+              <Trophy className="h-5 w-5 text-[var(--muted)]" />
+              <div>
+                <p className="font-medium">all-time rank</p>
+                <p className="text-sm text-muted-foreground">
+                  weekly: {formatRank(user?.weeklyRank || null)}
                 </p>
-              )}
+              </div>
             </div>
-          )}
-
-          {/* Link wallet prompt */}
-          {isConnected && !hasLinkedWallet && (
-            <div className="p-4 rounded-lg border border-dashed">
-              <p className="text-sm text-muted-foreground mb-3">
-                Link your connected wallet to your account for wallet-based
-                authentication and future Web3 features.
-              </p>
-              <Button onClick={handleLinkWallet} disabled={isLinkingWallet}>
-                {isLinkingWallet ? "Linking..." : "Link Wallet to Account"}
-              </Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Security Settings */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Shield className="h-5 w-5" />
-            Security
-          </CardTitle>
-          <CardDescription>Manage your account security</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between p-4 rounded-lg bg-muted">
-            <div>
-              <p className="font-medium">KYC Status</p>
-              <p className="text-sm text-muted-foreground">
-                {user?.kycStatus === "verified"
-                  ? "Identity verified"
-                  : user?.kycStatus === "pending"
-                    ? "Verification in progress"
-                    : "Not started"}
-              </p>
-            </div>
-            <span
-              className={`px-3 py-1 text-sm rounded-full ${
-                user?.kycStatus === "verified"
-                  ? "bg-green-100 text-green-800"
-                  : user?.kycStatus === "pending"
-                    ? "bg-yellow-100 text-yellow-800"
-                    : "bg-gray-100 text-gray-800"
-              }`}
-            >
-              {user?.kycStatus === "verified"
-                ? "Verified"
-                : user?.kycStatus === "pending"
-                  ? "Pending"
-                  : "Not Verified"}
+            <span className="text-2xl font-bold font-mono">
+              {formatRank(user?.allTimeRank || null)}
             </span>
           </div>
 
-          {user?.kycStatus === "none" && (
-            <p className="text-sm text-muted-foreground">
-              KYC verification will be required for withdrawals above certain
-              thresholds. This feature is coming soon.
-            </p>
-          )}
+          <p className="text-sm text-muted-foreground">
+            kudos are non-transferable reputation points earned by discovering
+            stories that go viral. earlier discoverers earn more kudos.
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* Account Info */}
+      <Card>
+        <CardHeader>
+          <CardTitle>account</CardTitle>
+          <CardDescription>account information</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between p-4 rounded-lg bg-muted">
+            <div>
+              <p className="font-medium">member since</p>
+              <p className="text-sm text-muted-foreground">
+                {user?.createdAt
+                  ? new Date(user.createdAt).toLocaleDateString()
+                  : "unknown"}
+              </p>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>

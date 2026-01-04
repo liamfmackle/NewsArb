@@ -10,7 +10,8 @@ interface ApiOptions {
 class ApiError extends Error {
   constructor(
     public status: number,
-    message: string
+    message: string,
+    public data?: unknown
   ) {
     super(message);
     this.name = "ApiError";
@@ -35,31 +36,43 @@ async function api<T>(endpoint: string, options: ApiOptions = {}): Promise<T> {
     body: body ? JSON.stringify(body) : undefined,
   });
 
+  const data = await response.json().catch(() => ({ message: "Request failed" }));
+
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: "Request failed" }));
-    throw new ApiError(response.status, error.message || "Request failed");
+    throw new ApiError(response.status, data.message || "Request failed", data);
   }
 
-  return response.json();
+  return data;
 }
 
 // Stories
 export const storiesApi = {
-  list: (params?: { page?: number; limit?: number }) =>
-    api<{ stories: Story[]; total: number }>(`/stories?${new URLSearchParams(params as Record<string, string>)}`),
+  list: (params?: { page?: number; limit?: number; status?: string }) =>
+    api<{ stories: Story[]; total: number }>(
+      `/stories?${new URLSearchParams(params as Record<string, string>)}`
+    ),
 
-  get: (id: string) => api<Story>(`/stories/${id}`),
+  get: (id: string) => api<StoryDetail>(`/stories/${id}`),
 
   create: (data: CreateStoryInput, token: string) =>
-    api<Story>("/stories", { method: "POST", body: data, token }),
+    api<StoryCreateResponse>("/stories", { method: "POST", body: data, token }),
+
+  discover: (id: string, token: string) =>
+    api<DiscoveryResponse>(`/stories/${id}/discover`, { method: "POST", token }),
+
+  checkMatch: (data: { title: string; url?: string; description: string }, token: string) =>
+    api<MatchCheckResult>("/stories/check-match", { method: "POST", body: data, token }),
 };
 
-// Markets
+// Markets (now story clusters/discovery)
 export const marketsApi = {
-  get: (storyId: string) => api<Market>(`/markets/${storyId}`),
+  get: (storyId: string) => api<StoryCluster>(`/markets/${storyId}`),
 
-  stake: (marketId: string, amount: number, token: string) =>
-    api<Position>(`/markets/${marketId}/stake`, { method: "POST", body: { amount }, token }),
+  discover: (storyId: string, token: string) =>
+    api<DiscoveryResponse>(`/markets/${storyId}/discover`, { method: "POST", token }),
+
+  getDiscoverers: (storyId: string) =>
+    api<Discoverer[]>(`/markets/${storyId}/discoverers`),
 };
 
 // Virality
@@ -76,59 +89,111 @@ export const viralityApi = {
 export const usersApi = {
   me: (token: string) => api<User>("/users/me", { token }),
 
-  positions: (token: string) =>
-    api<Position[]>("/users/me/positions", { token }),
+  update: (data: { displayName?: string }, token: string) =>
+    api<User>("/users/me", { method: "PATCH", body: data, token }),
 
-  transactions: (token: string) =>
-    api<Transaction[]>("/users/me/transactions", { token }),
+  kudos: (token: string) => api<KudosStats>("/users/me/kudos", { token }),
+
+  submissions: (token: string) => api<Submission[]>("/users/me/submissions", { token }),
+
+  kudosHistory: (token: string, limit?: number) =>
+    api<KudosHistoryEntry[]>(
+      `/users/me/kudos-history${limit ? `?limit=${limit}` : ""}`,
+      { token }
+    ),
+
+  profile: (userId: string) => api<UserProfile>(`/users/${userId}/profile`),
+
+  discoveries: (userId: string, limit?: number) =>
+    api<UserDiscovery[]>(
+      `/users/${userId}/discoveries${limit ? `?limit=${limit}` : ""}`
+    ),
 };
 
-// Payments
-export const paymentsApi = {
-  currencies: () => api<{ currencies: Currency[] }>("/payments/currencies"),
+// Leaderboards
+export const leaderboardsApi = {
+  weekly: (limit?: number) =>
+    api<{ leaderboard: LeaderboardEntry[]; type: "weekly" }>(
+      `/leaderboards/weekly${limit ? `?limit=${limit}` : ""}`
+    ),
 
-  createCheckout: (amount: number, currency: string, token: string) =>
-    api<CheckoutSession>("/payments/checkout", {
-      method: "POST",
-      body: { amount, currency },
-      token,
-    }),
+  allTime: (limit?: number) =>
+    api<{ leaderboard: LeaderboardEntry[]; type: "all-time" }>(
+      `/leaderboards/all-time${limit ? `?limit=${limit}` : ""}`
+    ),
 
-  getCheckoutStatus: (sessionId: string, token: string) =>
-    api<CheckoutStatus>(`/payments/checkout/${sessionId}`, { token }),
+  stories: (limit?: number) =>
+    api<{ stories: TopStory[] }>(
+      `/leaderboards/stories${limit ? `?limit=${limit}` : ""}`
+    ),
 
-  deposits: (token: string) =>
-    api<{ deposits: Transaction[] }>("/payments/deposits", { token }),
+  me: (token: string) =>
+    api<{ user: { id: string; displayName: string | null }; stats: KudosStats }>(
+      "/leaderboards/me",
+      { token }
+    ),
 };
 
-// Types (will be moved to shared package)
+// Types
 export type ViralityTrend = "rising" | "stable" | "declining";
+export type StoryStatus = "pending" | "active" | "settled" | "rejected";
+export type KudosReason = "early_discovery" | "viral_bonus" | "first_discoverer" | "weekly_reset";
 
 export interface Story {
   id: string;
   title: string;
-  url: string;
+  url: string | null;
   description: string;
   sourceDomain: string;
   submitterId: string;
-  status: "pending" | "active" | "capped" | "rejected";
+  status: StoryStatus;
   aiClassification: string | null;
   currentViralityScore: number | null;
   peakViralityScore: number | null;
   viralityTrend: ViralityTrend | null;
+  kudosPool: number;
+  kudosDistributed: boolean;
+  discovererCount: number;
   createdAt: string;
-  market?: Market;
+  submitter?: {
+    id: string;
+    displayName: string | null;
+  };
 }
 
-export interface Market {
+export interface StoryDetail extends Story {
+  discoverers: Discoverer[];
+  viralitySnapshots?: ViralitySnapshot[];
+}
+
+export interface StoryCluster {
   id: string;
   storyId: string;
-  totalPool: number;
-  participantCount: number;
-  status: "open" | "capped" | "settled";
-  settledAt: string | null;
-  settlementReason: string | null;
-  createdAt: string;
+  status: StoryStatus;
+  discovererCount: number;
+  kudosPool: number;
+  kudosDistributed: boolean;
+  story: Story;
+  discoverers: Discoverer[];
+  viralityHistory: Array<{
+    timestamp: string;
+    score: number;
+    trend: ViralityTrend;
+  }>;
+}
+
+export interface Discoverer {
+  id: string;
+  rank?: number;
+  user: {
+    id: string;
+    displayName: string | null;
+    totalKudos?: number;
+    allTimeRank?: number;
+  };
+  submittedAt: string;
+  kudosEarned: number;
+  isOriginal: boolean;
 }
 
 export interface ViralitySnapshot {
@@ -162,58 +227,173 @@ export interface ViralityData {
   }>;
 }
 
-export interface Position {
+export interface Submission {
   id: string;
   userId: string;
-  marketId: string;
-  stakeAmount: number;
-  entryPoolSize: number;
-  entryTime: string;
-  payoutAmount: number | null;
-  status: "active" | "paid_out";
-  market?: Market;
-  story?: Story;
+  storyId: string;
+  submittedAt: string;
+  kudosEarned: number;
+  isOriginal: boolean;
+  story: {
+    id: string;
+    title: string;
+    sourceDomain: string;
+    currentViralityScore: number | null;
+    peakViralityScore: number | null;
+    status: StoryStatus;
+  } | null;
+}
+
+export interface KudosHistoryEntry {
+  id: string;
+  amount: number;
+  reason: KudosReason;
+  storyId: string | null;
+  createdAt: string;
+  story?: {
+    title: string;
+  } | null;
+}
+
+export interface KudosStats {
+  totalKudos: number;
+  weeklyKudos: number;
+  allTimeRank: number | null;
+  weeklyRank: number | null;
+  totalDiscoveries: number;
+  originalDiscoveries: number;
 }
 
 export interface User {
   id: string;
   email: string;
   displayName: string | null;
-  walletAddress: string | null;
-  balance: number;
-  kycStatus: "none" | "pending" | "verified";
+  totalKudos: number;
+  weeklyKudos: number;
+  allTimeRank: number | null;
+  weeklyRank: number | null;
+  createdAt: string;
 }
 
-export interface Transaction {
+export interface UserProfile {
   id: string;
-  userId: string;
-  type: "deposit" | "withdrawal" | "stake" | "payout" | "fee";
-  amount: number;
-  referenceId: string | null;
+  displayName: string | null;
+  totalKudos: number;
+  weeklyKudos: number;
+  allTimeRank: number | null;
+  weeklyRank: number | null;
   createdAt: string;
+  totalDiscoveries: number;
+  originalDiscoveries: number;
+}
+
+export interface UserDiscovery {
+  id: string;
+  submittedAt: string;
+  kudosEarned: number;
+  isOriginal: boolean;
+  story: {
+    id: string;
+    title: string;
+    sourceDomain: string;
+    currentViralityScore: number | null;
+    peakViralityScore: number | null;
+    status: StoryStatus;
+    createdAt: string;
+  } | null;
+}
+
+export interface LeaderboardEntry {
+  rank: number;
+  user: {
+    id: string;
+    displayName: string | null;
+    email: string;
+  };
+  kudos: number;
+  discoveries: number;
+}
+
+export interface TopStory {
+  rank: number;
+  id: string;
+  title: string;
+  sourceDomain: string;
+  peakViralityScore: number | null;
+  kudosPool: number;
+  status: StoryStatus;
+  createdAt: string;
+  submitter: {
+    id: string;
+    displayName: string | null;
+  };
+  discovererCount: number;
 }
 
 export interface CreateStoryInput {
   title: string;
-  url: string;
+  url?: string;
   description: string;
-  initialStake: number;
+  forceNew?: boolean;
+  discoverStoryId?: string;
 }
 
-export interface Currency {
-  code: string;
-  symbol: string;
-  name: string;
-  minAmount: number;
+export interface StoryCreateResponse extends Story {
+  message: string;
+  isOriginalDiscoverer: boolean;
 }
 
-export interface CheckoutSession {
-  sessionId: string;
-  url: string;
+export interface DiscoveryResponse {
+  id: string;
+  storyId: string;
+  submittedAt: string;
+  isOriginal: boolean;
+  message: string;
+  story: {
+    id: string;
+    title: string;
+    sourceDomain: string;
+  };
 }
 
-export interface CheckoutStatus {
-  status: string;
-  amountTotal: number;
-  currency: string;
+export interface MatchCheckResult {
+  type: "duplicate" | "match_result";
+  message?: string;
+  decision?: string;
+  confidence?: number;
+  reasoning?: string;
+  suggestedAction?: string;
+  existingStory?: {
+    id: string;
+    title: string;
+    similarity?: number;
+  };
+  bestMatch?: {
+    storyId: string;
+    title: string;
+    description: string;
+    discovererCount: number;
+    scores?: {
+      semantic: number;
+      entity: number;
+      temporal: number;
+      composite: number;
+    };
+  };
+  otherCandidates?: Array<{
+    storyId: string;
+    title: string;
+    discovererCount: number;
+    composite: number;
+  }>;
+  entities?: {
+    people: string[];
+    organizations: string[];
+    locations: string[];
+    events: string[];
+    dates: string[];
+    topics: string[];
+  };
 }
+
+export { ApiError };

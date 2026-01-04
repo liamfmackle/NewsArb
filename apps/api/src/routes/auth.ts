@@ -53,13 +53,12 @@ export async function authRoutes(fastify: FastifyInstance) {
     // Hash password
     const passwordHash = await bcrypt.hash(password, 12);
 
-    // Create user with initial balance
+    // Create user
     const user = await prisma.user.create({
       data: {
         email,
         passwordHash,
         displayName,
-        balance: 100, // Starting balance for demo
       },
     });
 
@@ -71,7 +70,7 @@ export async function authRoutes(fastify: FastifyInstance) {
         id: user.id,
         email: user.email,
         displayName: user.displayName,
-        balance: user.balance,
+        totalKudos: user.totalKudos,
       },
       token,
     };
@@ -103,7 +102,7 @@ export async function authRoutes(fastify: FastifyInstance) {
         id: user.id,
         email: user.email,
         displayName: user.displayName,
-        balance: user.balance,
+        totalKudos: user.totalKudos,
       },
       token,
     };
@@ -127,7 +126,6 @@ export async function authRoutes(fastify: FastifyInstance) {
           email,
           displayName: name,
           googleId,
-          balance: 100, // Starting balance for demo
         },
       });
     } else if (!user.googleId) {
@@ -145,7 +143,7 @@ export async function authRoutes(fastify: FastifyInstance) {
         id: user.id,
         email: user.email,
         displayName: user.displayName,
-        balance: user.balance,
+        totalKudos: user.totalKudos,
       },
       token,
     };
