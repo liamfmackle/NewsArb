@@ -1,23 +1,31 @@
 "use client";
 
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { StoryStats } from "@/components/StoryStats";
 import { ViralityChart } from "@/components/ViralityChart";
 import { ViralityBadge } from "@/components/ViralityBadge";
-import { storiesApi, marketsApi } from "@/lib/api";
+import { StoryJourney } from "@/components/StoryJourney";
+import { WelcomeBanner } from "@/components/WelcomeBanner";
+import { EstimatedKudosPreview } from "@/components/EstimatedKudosPreview";
+import { storiesApi } from "@/lib/api";
 import { formatRelativeTime, formatKudos } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Star, Users, Crown, CheckCircle } from "lucide-react";
+import { Star, Crown, CheckCircle } from "lucide-react";
 
 export default function StoryPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const storyId = params.id as string;
   const { data: session } = useSession();
   const queryClient = useQueryClient();
+  const justSubmitted = searchParams.get("justSubmitted") === "true";
+  const [showWelcome, setShowWelcome] = useState(justSubmitted);
 
   const { data: story, isLoading: storyLoading } = useQuery({
     queryKey: ["story", storyId],
@@ -56,6 +64,17 @@ export default function StoryPage() {
   const hasDiscovered = story.discoverers?.some(
     (d) => d.user.id === session?.user?.id
   );
+  const userSubmission = story.discoverers?.find(
+    (d) => d.user.id === session?.user?.id
+  );
+  const userSubmissionOrder = userSubmission
+    ? story.discoverers!.findIndex((d) => d.id === userSubmission.id) + 1
+    : story.discovererCount + 1;
+
+  const handleDismissWelcome = () => {
+    setShowWelcome(false);
+    router.replace(`/stories/${storyId}`, { scroll: false });
+  };
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -66,6 +85,16 @@ export default function StoryPage() {
       >
         <span className="text-gold">/</span> stories
       </Link>
+
+      {/* Welcome Banner for just submitted */}
+      {showWelcome && hasDiscovered && (
+        <WelcomeBanner
+          isFirstDiscoverer={userSubmission?.isOriginal || false}
+          submissionOrder={userSubmissionOrder}
+          onDismiss={handleDismissWelcome}
+          className="mb-6"
+        />
+      )}
 
       {/* Story Header */}
       <div className="bg-surface border border-border p-6 mb-6">
@@ -108,6 +137,16 @@ export default function StoryPage() {
             </span>
           </div>
         )}
+      </div>
+
+      {/* Story Journey */}
+      <div className="mb-6">
+        <h2 className="text-lg font-mono mb-4">
+          <span className="text-gold">/</span> journey
+        </h2>
+        <div className="bg-surface border border-border p-6 rounded-lg">
+          <StoryJourney status={story.status} />
+        </div>
       </div>
 
       {/* Story Stats */}

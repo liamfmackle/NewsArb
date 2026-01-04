@@ -1,5 +1,6 @@
 import { formatKudos, formatRelativeTime } from "@/lib/utils";
-import { Star, Users, Clock, Activity } from "lucide-react";
+import { Star, Users, Clock } from "lucide-react";
+import { StoryStatusBadge } from "@/components/StoryStatusBadge";
 import type { Story, StoryCluster } from "@/lib/api";
 
 interface StoryStatsProps {
@@ -42,10 +43,9 @@ export function StoryStats({ story, discovererCount, kudosPool, status }: StoryS
 
       <div className="p-4 rounded-lg border bg-card">
         <div className="flex items-center gap-2 text-muted-foreground mb-1">
-          <Activity className="h-4 w-4" />
           <span className="text-sm">Status</span>
         </div>
-        <p className="text-2xl font-semibold capitalize">{status}</p>
+        <StoryStatusBadge status={status} showDescription />
       </div>
     </div>
   );

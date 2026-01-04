@@ -3,6 +3,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { Button } from "@/components/ui/button";
 import { formatKudos, formatRelativeTime, truncateText } from "@/lib/utils";
 import { ViralityBadgeCompact } from "@/components/ViralityBadge";
+import { StoryStatusBadge } from "@/components/StoryStatusBadge";
 import type { Story } from "@/lib/api";
 
 interface StoryCardProps {
@@ -44,6 +45,9 @@ export function StoryCard({ story }: StoryCardProps) {
             {story.aiClassification}
           </span>
         )}
+        <div className="mt-2">
+          <StoryStatusBadge status={story.status} variant="compact" />
+        </div>
       </CardContent>
       <CardFooter className="flex items-center justify-between pt-3 border-t border-border">
         <div className="flex items-center gap-4 text-sm font-mono">

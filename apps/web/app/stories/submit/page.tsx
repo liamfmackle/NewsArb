@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,10 +14,14 @@ import { FormError } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { storiesApi, MatchCheckResult } from "@/lib/api";
 import { ArrowLeft, AlertCircle, CheckCircle, Users } from "lucide-react";
+import { toast } from "@/components/ui/use-toast";
+import { Confetti, useConfetti } from "@/components/Confetti";
+import { EstimatedKudosPreview } from "@/components/EstimatedKudosPreview";
 
 export default function SubmitStoryPage() {
   const router = useRouter();
   const { data: session, status } = useSession();
+  const confetti = useConfetti();
   const [formData, setFormData] = useState({
     title: "",
     url: "",
@@ -57,7 +61,26 @@ export default function SubmitStoryPage() {
         session?.accessToken as string
       ),
     onSuccess: (story) => {
-      router.push(`/stories/${story.id}`);
+      const isFirst = story.isOriginalDiscoverer;
+
+      // Show success toast
+      toast({
+        title: isFirst ? "you're the first discoverer!" : "story discovered!",
+        description: isFirst
+          ? "2x kudos multiplier activated. we'll notify you when the story peaks."
+          : "we'll track virality and notify you when kudos are ready.",
+        variant: "success",
+      });
+
+      // Trigger confetti for first discoverer
+      if (isFirst) {
+        confetti.trigger();
+      }
+
+      // Delayed redirect to let user see celebration
+      setTimeout(() => {
+        router.push(`/stories/${story.id}?justSubmitted=true`);
+      }, isFirst ? 2000 : 1000);
     },
     onError: (err) => {
       setError(err instanceof Error ? err.message : "failed to submit story");
@@ -120,6 +143,8 @@ export default function SubmitStoryPage() {
 
   return (
     <div className="max-w-2xl mx-auto">
+      <Confetti isActive={confetti.isActive} onComplete={confetti.onComplete} />
+
       <Link
         href="/stories"
         className="inline-flex items-center gap-1 text-[var(--muted)] hover:text-[var(--foreground)] mb-6"
@@ -225,6 +250,11 @@ export default function SubmitStoryPage() {
                     </p>
                   </div>
 
+                  <EstimatedKudosPreview
+                    submissionOrder={(matchResult.bestMatch?.discovererCount || 0) + 1}
+                    isFirstDiscoverer={false}
+                  />
+
                   <div className="flex flex-col gap-2">
                     <Button
                       onClick={() => handleDiscoverExisting(matchResult.bestMatch!.storyId)}
@@ -256,11 +286,16 @@ export default function SubmitStoryPage() {
                       <div>
                         <p className="font-medium">no matching stories found</p>
                         <p className="text-sm text-[var(--muted)] mt-1">
-                          you could be the first to discover this story!
+                          you'll be the first to discover this story!
                         </p>
                       </div>
                     </div>
                   </div>
+
+                  <EstimatedKudosPreview
+                    submissionOrder={1}
+                    isFirstDiscoverer={true}
+                  />
 
                   <div className="flex flex-col gap-2">
                     <Button
