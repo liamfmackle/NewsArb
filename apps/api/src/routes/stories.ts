@@ -302,7 +302,7 @@ export async function storiesRoutes(fastify: FastifyInstance) {
     }
 
     // Create new story and market
-    const story = await prisma.$transaction(async (tx: typeof prisma) => {
+    const story = await prisma.$transaction(async (tx) => {
       // Create or find canonical event
       let canonicalEventId: string | null = null;
 
@@ -407,7 +407,7 @@ async function joinExistingMarket(
   stakeAmount: number,
   title: string,
   description: string,
-  url: string,
+  url: string | undefined,
   sourceDomain: string,
   embedding: number[] | null,
   entities: { people: string[]; organizations: string[]; locations: string[]; events: string[]; dates: string[]; topics: string[] },
@@ -435,7 +435,7 @@ async function joinExistingMarket(
     where: { userId, marketId },
   });
 
-  const result = await prisma.$transaction(async (tx: typeof prisma) => {
+  const result = await prisma.$transaction(async (tx) => {
     // Record the submission as a story linked to the existing market's canonical event
     const submissionStory = await tx.story.create({
       data: {

@@ -136,7 +136,7 @@ export async function settleMarket(
   });
 
   // Distribute pool proportionally
-  await prisma.$transaction(async (tx: typeof prisma) => {
+  await prisma.$transaction(async (tx) => {
     for (const pos of positionWeights) {
       const payout = (pos.weight / totalWeight) * distributablePool;
 

@@ -68,7 +68,7 @@ export async function marketsRoutes(fastify: FastifyInstance) {
     }
 
     // Create position in transaction
-    const position = await prisma.$transaction(async (tx: typeof prisma) => {
+    const position = await prisma.$transaction(async (tx) => {
       // Check for existing position
       const existingPosition = await tx.position.findFirst({
         where: { userId, marketId: id, status: "active" },

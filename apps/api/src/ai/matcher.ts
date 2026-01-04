@@ -676,7 +676,7 @@ export async function batchExtractEntities(): Promise<number> {
 
   for (const story of stories) {
     try {
-      const entities = await extractEntities(story.title, story.description, story.url);
+      const entities = await extractEntities(story.title, story.description, story.url ?? undefined);
       console.log(`Extracted entities for story ${story.id}:`, entities);
       processed++;
     } catch (error) {

@@ -151,12 +151,13 @@ async function getPreviousScore(storyId: string): Promise<number | null> {
 export async function calculateVirality(
   storyId: string,
   title: string,
-  url: string
+  url: string | null
 ): Promise<ViralityResult> {
   // Fetch raw metrics
+  const urlForSearch = url || "";
   const [articleCount, socialMentions, searchInterest] = await Promise.all([
-    fetchArticleCount(title, url),
-    fetchSocialMentions(title, url),
+    fetchArticleCount(title, urlForSearch),
+    fetchSocialMentions(title, urlForSearch),
     fetchSearchInterest(title),
   ]);
 
