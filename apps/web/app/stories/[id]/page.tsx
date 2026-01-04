@@ -12,6 +12,7 @@ import { ViralityChart } from "@/components/ViralityChart";
 import { ViralityBadge } from "@/components/ViralityBadge";
 import { storiesApi, marketsApi, usersApi } from "@/lib/api";
 import { formatRelativeTime } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function StoryPage() {
   const params = useParams();
@@ -43,8 +44,8 @@ export default function StoryPage() {
   if (storyLoading) {
     return (
       <div className="max-w-4xl mx-auto">
-        <div className="h-8 w-32 bg-surface-secondary animate-pulse mb-8" />
-        <div className="h-64 bg-surface-secondary animate-pulse" />
+        <Skeleton className="h-8 w-32 mb-8" />
+        <Skeleton className="h-64" />
       </div>
     );
   }

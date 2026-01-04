@@ -8,29 +8,15 @@ export default function GlobalError({
   reset: () => void;
 }) {
   return (
-    <html>
-      <body>
-        <div style={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          minHeight: "100vh",
-          fontFamily: "system-ui, sans-serif"
-        }}>
-          <h1 style={{ fontSize: "2rem", marginBottom: "1rem" }}>Something went wrong</h1>
+    <html lang="en" className="dark">
+      <body className="bg-[#0a0a0a] text-white antialiased">
+        <div className="flex flex-col items-center justify-center min-h-screen font-sans">
+          <h1 className="text-2xl font-bold mb-4">something went wrong</h1>
           <button
             onClick={reset}
-            style={{
-              padding: "0.5rem 1rem",
-              backgroundColor: "#0070f3",
-              color: "white",
-              border: "none",
-              borderRadius: "4px",
-              cursor: "pointer"
-            }}
+            className="px-5 py-2 bg-[#d4af37] text-black font-medium rounded-md hover:bg-[#a08928] transition-colors"
           >
-            Try again
+            try again
           </button>
         </div>
       </body>

@@ -1,5 +1,7 @@
 "use client";
 
+import { TREND_COLORS } from "@/lib/colors";
+
 interface ViralityBadgeProps {
   score: number | null;
   trend: "rising" | "stable" | "declining" | null;
@@ -23,19 +25,13 @@ export function ViralityBadge({
     lg: "text-base px-3 py-1.5",
   };
 
-  const trendColors = {
-    rising: "text-green-400",
-    stable: "text-yellow-400",
-    declining: "text-red-400",
-  };
-
   const trendArrows = {
     rising: "^",
     stable: "-",
     declining: "v",
   };
 
-  const trendColor = trend ? trendColors[trend] : "text-muted";
+  const trendColor = trend ? TREND_COLORS[trend] : "text-muted";
   const trendArrow = trend ? trendArrows[trend] : "";
 
   // Score color based on value
@@ -74,19 +70,13 @@ export function ViralityBadgeCompact({
     );
   }
 
-  const trendColors = {
-    rising: "text-green-400",
-    stable: "text-yellow-400",
-    declining: "text-red-400",
-  };
-
   const trendArrows = {
     rising: "^",
     stable: "-",
     declining: "v",
   };
 
-  const trendColor = trend ? trendColors[trend] : "";
+  const trendColor = trend ? TREND_COLORS[trend] : "";
   const trendArrow = trend ? trendArrows[trend] : "";
 
   return (

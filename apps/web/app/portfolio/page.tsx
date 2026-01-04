@@ -10,6 +10,8 @@ import { Button } from "@/components/ui/button";
 import { usersApi } from "@/lib/api";
 import { formatCurrency, formatRelativeTime } from "@/lib/utils";
 import { Wallet, TrendingUp, History } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { getTransactionColor, getStatusColors } from "@/lib/colors";
 
 export default function PortfolioPage() {
   const { data: session, status } = useSession();
@@ -42,8 +44,8 @@ export default function PortfolioPage() {
   if (status === "loading" || userLoading) {
     return (
       <div className="max-w-4xl mx-auto">
-        <div className="h-32 bg-[var(--surface-secondary)] animate-pulse rounded-lg mb-6" />
-        <div className="h-64 bg-[var(--surface-secondary)] animate-pulse rounded-lg" />
+        <Skeleton className="h-32 rounded-lg mb-6" />
+        <Skeleton className="h-64 rounded-lg" />
       </div>
     );
   }
@@ -98,21 +100,15 @@ export default function PortfolioPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <span
-              className={`inline-block px-2 py-1 text-xs rounded-full ${
-                user?.kycStatus === "verified"
-                  ? "bg-green-500/20 text-green-400"
-                  : user?.kycStatus === "pending"
-                    ? "bg-yellow-500/20 text-yellow-400"
-                    : "bg-[var(--surface-tertiary)] text-[var(--muted)]"
-              }`}
-            >
-              {user?.kycStatus === "verified"
-                ? "verified"
-                : user?.kycStatus === "pending"
-                  ? "pending"
-                  : "not started"}
-            </span>
+            {(() => {
+              const status = user?.kycStatus === "verified" ? "verified" : user?.kycStatus === "pending" ? "pending" : "none";
+              const colors = getStatusColors(status);
+              return (
+                <span className={`inline-block px-2 py-1 text-xs rounded-full ${colors.bg} ${colors.text}`}>
+                  {status === "verified" ? "verified" : status === "pending" ? "pending" : "not started"}
+                </span>
+              );
+            })()}
           </CardContent>
         </Card>
       </div>
@@ -126,10 +122,7 @@ export default function PortfolioPage() {
           {positionsLoading ? (
             <div className="space-y-2">
               {[...Array(3)].map((_, i) => (
-                <div
-                  key={i}
-                  className="h-16 bg-[var(--surface-secondary)] animate-pulse rounded"
-                />
+                <Skeleton key={i} className="h-16 rounded" />
               ))}
             </div>
           ) : activePositions.length === 0 ? (
@@ -184,10 +177,7 @@ export default function PortfolioPage() {
           {transactionsLoading ? (
             <div className="space-y-2">
               {[...Array(5)].map((_, i) => (
-                <div
-                  key={i}
-                  className="h-12 bg-[var(--surface-secondary)] animate-pulse rounded"
-                />
+                <Skeleton key={i} className="h-12 rounded" />
               ))}
             </div>
           ) : !transactions || transactions.length === 0 ? (
@@ -207,15 +197,7 @@ export default function PortfolioPage() {
                       {formatRelativeTime(new Date(tx.createdAt))}
                     </p>
                   </div>
-                  <p
-                    className={`font-semibold font-mono ${
-                      tx.type === "payout" || tx.type === "deposit"
-                        ? "text-green-400"
-                        : tx.type === "stake" || tx.type === "withdrawal"
-                          ? "text-red-400"
-                          : ""
-                    }`}
-                  >
+                  <p className={`font-semibold font-mono ${getTransactionColor(tx.type)}`}>
                     {tx.type === "payout" || tx.type === "deposit" ? "+" : "-"}
                     {formatCurrency(Math.abs(tx.amount))}
                   </p>

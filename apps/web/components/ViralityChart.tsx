@@ -3,6 +3,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { viralityApi, type ViralityData } from "@/lib/api";
 import { ViralityBadge } from "./ViralityBadge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { TREND_COLORS } from "@/lib/colors";
 
 interface ViralityChartProps {
   storyId: string;
@@ -17,9 +19,9 @@ export function ViralityChart({ storyId }: ViralityChartProps) {
 
   if (isLoading) {
     return (
-      <div className="bg-surface border border-border p-4 animate-pulse">
-        <div className="h-4 bg-surface-secondary rounded w-24 mb-4" />
-        <div className="h-32 bg-surface-secondary rounded" />
+      <div className="bg-surface border border-border p-4">
+        <Skeleton className="h-4 w-24 mb-4" />
+        <Skeleton className="h-32" />
       </div>
     );
   }
@@ -71,15 +73,7 @@ export function ViralityChart({ storyId }: ViralityChartProps) {
         </div>
         <div>
           <span className="data-label">trend</span>
-          <p
-            className={`font-mono text-lg ${
-              current.trend === "rising"
-                ? "text-green-400"
-                : current.trend === "declining"
-                  ? "text-red-400"
-                  : "text-yellow-400"
-            }`}
-          >
+          <p className={`font-mono text-lg ${current.trend ? TREND_COLORS[current.trend] : "text-[var(--muted)]"}`}>
             {current.trend ?? "--"}
           </p>
         </div>
@@ -145,12 +139,6 @@ export function ViralityMini({
     return null;
   }
 
-  const trendColors = {
-    rising: "text-green-400",
-    stable: "text-yellow-400",
-    declining: "text-red-400",
-  };
-
   return (
     <div className="flex items-center gap-3 font-mono text-sm">
       <span>
@@ -164,7 +152,7 @@ export function ViralityMini({
         </span>
       )}
       {trend && (
-        <span className={trendColors[trend]}>
+        <span className={TREND_COLORS[trend]}>
           {trend === "rising" ? "^" : trend === "declining" ? "v" : "-"}
         </span>
       )}

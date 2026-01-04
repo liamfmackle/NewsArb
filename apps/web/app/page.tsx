@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { storiesApi } from "@/lib/api";
 import { formatCurrency, formatRelativeTime } from "@/lib/utils";
 import { ViralityBadgeCompact } from "@/components/ViralityBadge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { TrendingUp, Users, ArrowRight } from "lucide-react";
 
 export default function Home() {
@@ -55,7 +56,7 @@ export default function Home() {
         {isLoading ? (
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-20 bg-surface-secondary rounded-lg animate-pulse" />
+              <Skeleton key={i} className="h-20 rounded-lg" />
             ))}
           </div>
         ) : stories.length === 0 ? (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { FormError } from "@/components/ui/alert";
+import { Skeleton } from "@/components/ui/skeleton";
 import { paymentsApi, Currency } from "@/lib/api";
 import { X, CreditCard, Loader2 } from "lucide-react";
 
@@ -28,6 +30,15 @@ export function DepositModal({ isOpen, onClose }: DepositModalProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingCurrencies, setIsLoadingCurrencies] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    },
+    [onClose]
+  );
 
   // Fetch supported currencies on mount
   useEffect(() => {
@@ -48,6 +59,18 @@ export function DepositModal({ isOpen, onClose }: DepositModalProps) {
         });
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    if (isOpen) {
+      document.addEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = "hidden";
+    }
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = "unset";
+    };
+  }, [isOpen, handleKeyDown]);
 
   if (!isOpen) return null;
 
@@ -95,32 +118,40 @@ export function DepositModal({ isOpen, onClose }: DepositModalProps) {
   const quickAmounts = [10, 25, 50, 100];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative bg-background rounded-lg shadow-lg w-full max-w-md mx-4 p-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center" role="dialog" aria-modal="true">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
+      <div className="relative bg-[var(--surface)] border border-[var(--border)] rounded-lg shadow-xl w-full max-w-md mx-4 p-6 animate-in fade-in-0 zoom-in-95 duration-200">
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 text-muted-foreground hover:text-foreground"
+          className="absolute top-4 right-4 text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
+          aria-label="Close modal"
         >
           <X className="h-5 w-5" />
         </button>
 
         <div className="flex items-center gap-2 mb-6">
-          <CreditCard className="h-5 w-5 text-primary" />
-          <h2 className="text-xl font-semibold">Add Funds</h2>
+          <CreditCard className="h-5 w-5 text-[var(--gold)]" />
+          <h2 className="text-xl font-semibold">add funds</h2>
         </div>
 
         {isLoadingCurrencies ? (
-          <div className="flex justify-center py-8">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <div className="space-y-4 py-4">
+            <Skeleton className="h-10" />
+            <Skeleton className="h-10" />
+            <div className="flex gap-2">
+              <Skeleton className="h-8 flex-1" />
+              <Skeleton className="h-8 flex-1" />
+              <Skeleton className="h-8 flex-1" />
+              <Skeleton className="h-8 flex-1" />
+            </div>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <Label htmlFor="currency">Currency</Label>
+              <Label htmlFor="currency">currency</Label>
               <Select value={currency} onValueChange={setCurrency}>
                 <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="Select currency" />
+                  <SelectValue placeholder="select currency" />
                 </SelectTrigger>
                 <SelectContent>
                   {currencies.map((c) => (
@@ -136,9 +167,9 @@ export function DepositModal({ isOpen, onClose }: DepositModalProps) {
             </div>
 
             <div>
-              <Label htmlFor="amount">Amount</Label>
+              <Label htmlFor="amount">amount</Label>
               <div className="relative mt-1">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-mono">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)] font-mono">
                   {selectedCurrency?.symbol || "$"}
                 </span>
                 <Input
@@ -153,8 +184,8 @@ export function DepositModal({ isOpen, onClose }: DepositModalProps) {
                   autoFocus
                 />
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Minimum: {selectedCurrency?.symbol || "$"}
+              <p className="text-xs text-[var(--muted)] mt-1">
+                minimum: {selectedCurrency?.symbol || "$"}
                 {minAmount.toFixed(2)}
               </p>
             </div>
@@ -176,16 +207,16 @@ export function DepositModal({ isOpen, onClose }: DepositModalProps) {
               ))}
             </div>
 
-            <div className="p-3 bg-muted rounded-md text-sm space-y-2">
-              <p className="text-muted-foreground">
-                You will be redirected to Stripe to complete your payment securely.
+            <div className="p-3 bg-[var(--surface-secondary)] rounded-md text-sm space-y-2 border border-[var(--border)]">
+              <p className="text-[var(--muted)]">
+                you will be redirected to Stripe to complete your payment securely.
               </p>
-              <p className="text-muted-foreground text-xs">
-                Funds will be converted to USD and added to your wallet balance.
+              <p className="text-[var(--muted)] text-xs">
+                funds will be converted to USD and added to your wallet balance.
               </p>
             </div>
 
-            {error && <p className="text-sm text-destructive">{error}</p>}
+            <FormError>{error}</FormError>
 
             <div className="flex gap-3">
               <Button
@@ -194,7 +225,7 @@ export function DepositModal({ isOpen, onClose }: DepositModalProps) {
                 className="flex-1"
                 onClick={onClose}
               >
-                Cancel
+                cancel
               </Button>
               <Button
                 type="submit"
@@ -204,10 +235,10 @@ export function DepositModal({ isOpen, onClose }: DepositModalProps) {
                 {isLoading ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    Processing...
+                    processing...
                   </>
                 ) : (
-                  "Continue to Payment"
+                  "continue to payment"
                 )}
               </Button>
             </div>

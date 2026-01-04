@@ -8,7 +8,10 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { FormError } from "@/components/ui/alert";
+import { Skeleton } from "@/components/ui/skeleton";
 import { storiesApi } from "@/lib/api";
 import { ArrowLeft } from "lucide-react";
 
@@ -45,7 +48,7 @@ export default function SubmitStoryPage() {
   if (status === "loading") {
     return (
       <div className="max-w-2xl mx-auto">
-        <div className="h-96 bg-[var(--surface-secondary)] animate-pulse rounded-lg" />
+        <Skeleton className="h-96 rounded-lg" />
       </div>
     );
   }
@@ -141,7 +144,7 @@ export default function SubmitStoryPage() {
 
             <div>
               <Label htmlFor="description">description</Label>
-              <textarea
+              <Textarea
                 id="description"
                 value={formData.description}
                 onChange={(e) =>
@@ -151,7 +154,7 @@ export default function SubmitStoryPage() {
                   }))
                 }
                 placeholder="briefly describe the story and why you think it will go viral"
-                className="mt-1 w-full min-h-[100px] rounded-md border border-[var(--border)] bg-[var(--surface-secondary)] text-[var(--foreground)] px-3 py-2 text-sm placeholder:text-[var(--muted)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--gold)] transition-colors"
+                className="mt-1"
               />
             </div>
 
@@ -177,7 +180,7 @@ export default function SubmitStoryPage() {
               </p>
             </div>
 
-            {error && <p className="text-sm text-red-500">{error}</p>}
+            <FormError>{error}</FormError>
 
             <Button
               type="submit"

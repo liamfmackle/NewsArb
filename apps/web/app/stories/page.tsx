@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { StoryCard } from "@/components/StoryCard";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { storiesApi, Story } from "@/lib/api";
 import { useState } from "react";
 import Link from "next/link";
@@ -42,10 +43,7 @@ export default function StoriesPage() {
       {isLoading ? (
         <div className="space-y-4">
           {[...Array(5)].map((_, i) => (
-            <div
-              key={i}
-              className="h-48 rounded-lg bg-[var(--surface-secondary)] animate-pulse"
-            />
+            <Skeleton key={i} className="h-48 rounded-lg" />
           ))}
         </div>
       ) : data?.stories.length === 0 ? (
