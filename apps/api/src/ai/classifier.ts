@@ -1,9 +1,20 @@
 import OpenAI from "openai";
 import { prisma } from "../lib/prisma.js";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// Lazy initialization - only create client when API key is available
+let openai: OpenAI | null = null;
+
+function getOpenAIClient(): OpenAI | null {
+  if (!process.env.OPENAI_API_KEY) {
+    return null;
+  }
+  if (!openai) {
+    openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
+  }
+  return openai;
+}
 
 interface ClassificationResult {
   category: string;
@@ -26,8 +37,13 @@ export async function classifyStory(
     };
   }
 
+  const client = getOpenAIClient();
+  if (!client) {
+    return { category: "news", flags: [], approved: true };
+  }
+
   try {
-    const response = await openai.chat.completions.create({
+    const response = await client.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
         {
@@ -248,12 +264,13 @@ export async function findRelatedStories(
 }
 
 export async function generateEmbedding(text: string): Promise<number[] | null> {
-  if (!process.env.OPENAI_API_KEY) {
+  const client = getOpenAIClient();
+  if (!client) {
     return null;
   }
 
   try {
-    const response = await openai.embeddings.create({
+    const response = await client.embeddings.create({
       model: "text-embedding-3-small",
       input: text,
     });

@@ -24,8 +24,13 @@ const fastify = Fastify({
 });
 
 // Register plugins
+// Support multiple origins via comma-separated FRONTEND_URL
+const allowedOrigins = (process.env.FRONTEND_URL || "http://localhost:3000")
+  .split(",")
+  .map((o) => o.trim());
+
 await fastify.register(cors, {
-  origin: process.env.FRONTEND_URL || "http://localhost:3000",
+  origin: allowedOrigins,
   credentials: true,
 });
 

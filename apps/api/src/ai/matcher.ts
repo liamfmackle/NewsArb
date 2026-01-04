@@ -22,9 +22,20 @@ import OpenAI from "openai";
 import { prisma } from "../lib/prisma.js";
 import { cosineSimilarity, generateEmbedding } from "./classifier.js";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// Lazy initialization - only create client when API key is available
+let openai: OpenAI | null = null;
+
+function getOpenAIClient(): OpenAI | null {
+  if (!process.env.OPENAI_API_KEY) {
+    return null;
+  }
+  if (!openai) {
+    openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
+  }
+  return openai;
+}
 
 // ============================================================================
 // Types
@@ -130,12 +141,13 @@ export async function extractEntities(
     topics: [],
   };
 
-  if (!process.env.OPENAI_API_KEY) {
+  const client = getOpenAIClient();
+  if (!client) {
     return defaultEntities;
   }
 
   try {
-    const response = await openai.chat.completions.create({
+    const response = await client.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
         {
@@ -575,7 +587,8 @@ export async function verifyMatchWithAI(
   confidence: number;
   reasoning: string;
 }> {
-  if (!process.env.OPENAI_API_KEY) {
+  const client = getOpenAIClient();
+  if (!client) {
     return {
       isSameEvent: false,
       confidence: 0.5,
@@ -584,7 +597,7 @@ export async function verifyMatchWithAI(
   }
 
   try {
-    const response = await openai.chat.completions.create({
+    const response = await client.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
         {
