@@ -12,7 +12,7 @@
     "db:push": "turbo run db:push",
     "db:migrate": "turbo run db:migrate",
     "db:seed": "pnpm --filter @newsarb/api db:seed",
-    "build:web": "pnpm --filter @newsarb/web build",
+    "build:web": "NODE_ENV=production pnpm --filter @newsarb/web build",
     "build:api": "pnpm --filter @newsarb/api db:generate && pnpm --filter @newsarb/api build",
     "start:web": "cd apps/web && pnpm start",
     "start:api": "node apps/api/dist/index.js"
